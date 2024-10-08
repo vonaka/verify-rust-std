@@ -5,7 +5,7 @@
 use crate::str::FromStr;
 use crate::ub_checks::assert_unsafe_precondition;
 use crate::{ascii, intrinsics, mem};
-use safety::requires;
+use safety::{requires, ensures};
 
 #[cfg(kani)]
 use crate::kani;
@@ -1661,11 +1661,11 @@ mod verify {
     // `unchecked_add` proofs
     //
     // Target types:
-    // i{8,16,32,64,128} and u{8,16,32,64,128} -- 10 types in total
+    // i{8,16,32,64,128,size} and u{8,16,32,64,128,size} -- 12 types in total
     //
     // Target contracts:
-    //#[requires(!self.overflowing_sub(rhs).1)] // Preconditions: No overflow should occur
-    //#[ensures(|ret| *ret >= Self::MIN && *ret <= Self::MAX)] // Postconditions: Result must be within valid bounds
+    // Preconditions: No overflow should occur
+    // #[requires(!self.overflowing_add(rhs).1)]
     //
     // Target function:
     // pub const unsafe fn unchecked_add(self, rhs: Self) -> Self
@@ -1682,12 +1682,31 @@ mod verify {
     generate_unchecked_math_harness!(u128, unchecked_add, checked_unchecked_add_u128);
     generate_unchecked_math_harness!(usize, unchecked_add, checked_unchecked_add_usize);
 
+    // `unchecked_neg` proofs
+    //
+    // Target types:
+    // i{8,16,32,64,128,size} -- 6 types in total
+    //
+    // Target contracts:
+    // #[requires(self != $SelfT::MIN)]
+    //
+    // Target function:
+    // pub const unsafe fn unchecked_neg(self) -> Self
+    generate_unchecked_neg_harness!(i8, checked_unchecked_neg_i8);
+    generate_unchecked_neg_harness!(i16, checked_unchecked_neg_i16);
+    generate_unchecked_neg_harness!(i32, checked_unchecked_neg_i32);
+    generate_unchecked_neg_harness!(i64, checked_unchecked_neg_i64);
+    generate_unchecked_neg_harness!(i128, checked_unchecked_neg_i128);
+    generate_unchecked_neg_harness!(isize, checked_unchecked_neg_isize);
+
     // unchecked_mul proofs
     //
     // Target types:
-    // i{8,16,32,64,128, size} and u{8,16,32,64,128, size} -- 36 types in total
+    // i{8,16,32,64,128,size} and u{8,16,32,64,128,size} -- 12 types in total, with different interval checks for each.
+    // Total types of checks including intervals -- 36
     //
     // Target contracts:
+    // Preconditions: No overflow should occur
     // #[requires(!self.overflowing_mul(rhs).1)]
     //
     // Target function:
@@ -1783,11 +1802,10 @@ mod verify {
     // `unchecked_shl` proofs
     //
     // Target types:
-    // i{8,16,32,64,128} and u{8,16,32,64,128} -- 12 types in total
+    // i{8,16,32,64,128,size} and u{8,16,32,64,128,size} -- 12 types in total
     //
     // Target contracts:
     // #[requires(shift < Self::BITS)]
-    // #[ensures(|ret| *ret == self << shift)]
     //
     // Target function:
     // pub const unsafe fn unchecked_shl(self, shift: u32) -> Self
@@ -1809,10 +1827,11 @@ mod verify {
     // `unchecked_sub` proofs
     //
     // Target types:
-    // i{8,16,32,64,128} and u{8,16,32,64,128} -- 12 types in total
+    // i{8,16,32,64,128,size} and u{8,16,32,64,128,size} -- 12 types in total
     //
     // Target contracts:
-    // #[requires(!self.overflowing_sub(rhs).1)] // Preconditions: No overflow should occur
+    // Preconditions: No overflow should occur
+    // #[requires(!self.overflowing_sub(rhs).1)] 
     //
     // Target function:
     // pub const unsafe fn unchecked_sub(self, rhs: Self)  -> Self

@@ -1167,6 +1167,8 @@ macro_rules! int_impl {
         #[rustc_const_unstable(feature = "unchecked_neg", issue = "85122")]
         #[inline(always)]
         #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+        #[requires(self != $SelfT::MIN)]
+        #[ensures(|result| *result == -self)]
         pub const unsafe fn unchecked_neg(self) -> Self {
             assert_unsafe_precondition!(
                 check_language_ub,
