@@ -171,6 +171,7 @@ pub use predicates::*;
 /// Provide a few predicates to be used in safety contracts.
 ///
 /// At runtime, they are no-op, and always return true.
+/// FIXME: In some cases, we could do better, for example check if not null and aligned.
 #[cfg(not(kani))]
 mod predicates {
     /// Checks if a pointer can be dereferenced, ensuring:
@@ -179,7 +180,7 @@ mod predicates {
     ///   * `src` points to a properly initialized value of type `T`.
     ///
     /// [`crate::ptr`]: https://doc.rust-lang.org/std/ptr/index.html
-    pub fn can_dereference<T>(src: *const T) -> bool {
+    pub fn can_dereference<T: ?Sized>(src: *const T) -> bool {
         let _ = src;
         true
     }
@@ -188,7 +189,7 @@ mod predicates {
     /// * `dst` must be valid for writes.
     /// * `dst` must be properly aligned. Use `write_unaligned` if this is not the
     ///    case.
-    pub fn can_write<T>(dst: *mut T) -> bool {
+    pub fn can_write<T: ?Sized>(dst: *mut T) -> bool {
         let _ = dst;
         true
     }
@@ -196,22 +197,29 @@ mod predicates {
     /// Check if a pointer can be the target of unaligned reads.
     /// * `src` must be valid for reads.
     /// * `src` must point to a properly initialized value of type `T`.
-    pub fn can_read_unaligned<T>(src: *const T) -> bool {
+    pub fn can_read_unaligned<T: ?Sized>(src: *const T) -> bool {
         let _ = src;
         true
     }
 
     /// Check if a pointer can be the target of unaligned writes.
     /// * `dst` must be valid for writes.
-    pub fn can_write_unaligned<T>(dst: *mut T) -> bool {
+    pub fn can_write_unaligned<T: ?Sized>(dst: *mut T) -> bool {
         let _ = dst;
+        true
+    }
+
+    /// Checks if two pointers point to the same allocation.
+    pub fn same_allocation<T: ?Sized>(src: *const T, dst: *const T) -> bool {
+        let _ = (src, dst);
         true
     }
 }
 
 #[cfg(kani)]
 mod predicates {
-    pub use crate::kani::mem::{can_dereference, can_write, can_read_unaligned, can_write_unaligned};
+    pub use crate::kani::mem::{can_dereference, can_write, can_read_unaligned, can_write_unaligned,
+    same_allocation};
 }
 
 /// This trait should be used to specify and check type safety invariants for a
