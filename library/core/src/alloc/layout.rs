@@ -13,6 +13,8 @@ use crate::{assert_unsafe_precondition, fmt, mem};
 
 #[cfg(kani)]
 use crate::kani;
+#[cfg(kani)]
+use crate::cmp;
 
 // Used only for contract verification.
 #[allow(unused_imports)]

@@ -1682,7 +1682,6 @@ from_str_radix_size_impl! { signed i16 isize, unsigned u16 usize }
 #[cfg(target_pointer_width = "32")]
 from_str_radix_size_impl! { signed i32 isize, unsigned u32 usize }
 #[cfg(target_pointer_width = "64")]
-from_str_radix_size_impl! { i64 isize, u64 usize }
 from_str_radix_size_impl! { signed i64 isize, unsigned u64 usize }
 
 #[cfg(kani)]
