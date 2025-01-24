@@ -1,4 +1,4 @@
-# Challenge 14: Contracts and Tests for SIMD Intrinsics
+# Challenge 15: Contracts and Tests for SIMD Intrinsics
 
 - **Status:** Open
 - **Reward:** 
