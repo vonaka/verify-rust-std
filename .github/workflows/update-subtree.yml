@@ -1,0 +1,155 @@
+name: Subtree Update
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # Run at 14:00 UTC every day
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  update-subtree-library:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        path: verify-rust-std
+        submodules: true
+
+    - name: Checkout Kani
+      uses: actions/checkout@v4
+      with:
+        repository: model-checking/kani
+        path: kani-tmp
+
+    - name: Checkout Rust
+      uses: actions/checkout@v4
+      with:
+        repository: rust-lang/rust
+        fetch-depth: 0
+        path: rust-tmp
+
+    - name: Checkout git-filter-repo
+      uses: actions/checkout@v4
+      with:
+        repository: newren/git-filter-repo
+        path: git-filter-repo
+
+    - name: Fetch toolchain versions
+      run: |
+        CURRENT_TOOLCHAIN_DATE=$(grep -oP 'channel = "nightly-\K\d{4}-\d{2}-\d{2}' verify-rust-std/rust-toolchain.toml)
+        NEXT_TOOLCHAIN_DATE=$(grep -oP 'channel = "nightly-\K\d{4}-\d{2}-\d{2}' kani-tmp/rust-toolchain.toml)
+        CURRENT_COMMIT_HASH=$(curl https://static.rust-lang.org/dist/$CURRENT_TOOLCHAIN_DATE/channel-rust-nightly-git-commit-hash.txt)
+        NEXT_COMMIT_HASH=$(curl https://static.rust-lang.org/dist/$NEXT_TOOLCHAIN_DATE/channel-rust-nightly-git-commit-hash.txt)
+        if [ -z "$CURRENT_COMMIT_HASH" ]; then
+          echo "Could not find current commit hash on static.rust-lang.org"
+          exit 1
+        fi
+        if [ -z "$NEXT_COMMIT_HASH" ]; then
+          echo "Could not find next commit hash on static.rust-lang.org"
+          exit 1
+        fi
+        echo "CURRENT_TOOLCHAIN_DATE=${CURRENT_TOOLCHAIN_DATE}" >> $GITHUB_ENV
+        echo "NEXT_TOOLCHAIN_DATE=${NEXT_TOOLCHAIN_DATE}" >> $GITHUB_ENV
+        echo "CURRENT_COMMIT_HASH=${CURRENT_COMMIT_HASH}" >> $GITHUB_ENV
+        echo "NEXT_COMMIT_HASH=${NEXT_COMMIT_HASH}" >> $GITHUB_ENV
+
+    - name: Update subtree/library locally
+      run: |
+        cd rust-tmp
+
+        # Ensure "upstream/master" branch contains the target commit
+        if ! git show ${NEXT_COMMIT_HASH} --oneline --no-patch; then
+          echo "Rust commit ${NEXT_COMMIT_HASH} cannot be found."
+          exit 1
+        fi
+
+        git checkout ${NEXT_COMMIT_HASH}
+        ../git-filter-repo/git-filter-repo --subdirectory-filter library --force
+        git checkout -b subtree/library
+
+        cd ../verify-rust-std
+        git remote add rust-filtered ../rust-tmp/
+        git fetch rust-filtered
+        git checkout -b subtree/library rust-filtered/subtree/library
+        SUBTREE_HEAD_MSG=$(git log --format=%s -n 1 origin/subtree/library)
+        UPSTREAM_FROM=$(git log --grep="${SUBTREE_HEAD_MSG}" -n 1 --format=%H rust-filtered/subtree/library)
+        UPSTREAM_HEAD=$(git log --format=%H -n 1 rust-filtered/subtree/library)
+        if [ "${UPSTREAM_HEAD}" = "${UPSTREAM_FROM}" ]; then
+          echo "Nothing to do, ${UPSTREAM_FROM} matches ${UPSTREAM_HEAD} (${SUBTREE_HEAD_MSG})"
+          echo "MERGE_CONFLICTS=noop" >> $GITHUB_ENV
+        else
+          git branch --set-upstream-to=origin/subtree/library
+          git -c user.name=gitbot -c user.email=git@bot rebase
+          echo "MERGE_CONFLICTS=maybe" >> $GITHUB_ENV
+        fi
+
+    - name: Create Pull Request
+      if: ${{ env.MERGE_CONFLICTS != 'noop' }}
+      uses: peter-evans/create-pull-request@v7
+      with:
+        title: 'Update subtree/library to ${{ env.NEXT_TOOLCHAIN_DATE }}'
+        body: |
+          This is an automated PR to update the subtree/library branch to the changes
+          from ${{ env.CURRENT_TOOLCHAIN_DATE }} (${{ env.CURRENT_COMMIT_HASH }})
+          to ${{ env.NEXT_TOOLCHAIN_DATE }} (${{ env.NEXT_COMMIT_HASH }}), inclusive.
+        branch: update-subtree/library
+        delete-branch: true
+        base: subtree/library
+        path: verify-rust-std
+
+    - name: Merge subtree/library changes
+      if: ${{ env.MERGE_CONFLICTS != 'noop' }}
+      run: |
+        cd verify-rust-std
+        git checkout main
+
+        # This command may fail, which will require human intervention.
+        if ! git \
+            -c user.name=gitbot -c user.email=git@bot \
+            subtree merge --prefix=library update-subtree/library --squash; then
+          echo "MERGE_CONFLICTS=yes" >> $GITHUB_ENV
+          git -c user.name=gitbot -c user.email=git@bot commit -a -m "Merge from $NEXT_COMMIT_HASH with conflicts"
+        else
+          echo "MERGE_CONFLICTS=no" >> $GITHUB_ENV
+        fi
+
+        sed -i "s/^channel = \"nightly-.*\"/channel = \"${NEXT_TOOLCHAIN_DATE}\"/" rust-toolchain.toml
+        git -c user.name=gitbot -c user.email=git@bot \
+          commit -m "Update toolchain to ${NEXT_TOOLCHAIN_DATE}" rust-toolchain.toml
+
+    - name: Create Pull Request without conflicts
+      if: ${{ env.MERGE_CONFLICTS == 'no' }}
+      uses: peter-evans/create-pull-request@v7
+      with:
+        title: 'Merge subtree update for toolchain nightly-${{ env.NEXT_TOOLCHAIN_DATE }}'
+        body: |
+          This is an automated PR to merge library subtree updates
+          from ${{ env.CURRENT_TOOLCHAIN_DATE }} (${{ env.CURRENT_COMMIT_HASH }})
+          to ${{ env.NEXT_TOOLCHAIN_DATE }} (${{ env.NEXT_COMMIT_HASH }}), inclusive.
+          This is a clean merge, no conflicts were detected.
+        branch: sync-${{ env.NEXT_TOOLCHAIN_DATE }}
+        delete-branch: true
+        base: main
+        path: verify-rust-std
+
+    - name: Create Pull Request with conflicts
+      if: ${{ env.MERGE_CONFLICTS == 'yes' }}
+      uses: peter-evans/create-pull-request@v7
+      with:
+        title: 'Merge subtree update for toolchain nightly-${{ env.NEXT_TOOLCHAIN_DATE }}'
+        body: |
+          This is an automated PR to merge library subtree updates
+          from ${{ env.CURRENT_TOOLCHAIN_DATE }} (${{ env.CURRENT_COMMIT_HASH }})
+          to ${{ env.NEXT_TOOLCHAIN_DATE }} (${{ env.NEXT_COMMIT_HASH }}) (inclusive)
+          into main. `git merge` resulted in conflicts, which require manual resolution.
+          Files were commited with merge conflict markers.
+        branch: sync-${{ env.NEXT_TOOLCHAIN_DATE }}
+        delete-branch: true
+        base: main
+        path: verify-rust-std
