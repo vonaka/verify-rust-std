@@ -18,14 +18,17 @@ impl<T: ?Sized> *const T {
     /// Therefore, two pointers that are null may still not compare equal to
     /// each other.
     ///
-    /// ## Behavior during const evaluation
+    /// # Panics during const evaluation
     ///
-    /// When this function is used during const evaluation, it may return `false` for pointers
-    /// that turn out to be null at runtime. Specifically, when a pointer to some memory
-    /// is offset beyond its bounds in such a way that the resulting pointer is null,
-    /// the function will still return `false`. There is no way for CTFE to know
-    /// the absolute position of that memory, so we cannot tell if the pointer is
-    /// null or not.
+    /// If this method is used during const evaluation, and `self` is a pointer
+    /// that is offset beyond the bounds of the memory it initially pointed to,
+    /// then there might not be enough information to determine whether the
+    /// pointer is null. This is because the absolute address in memory is not
+    /// known at compile time. If the nullness of the pointer cannot be
+    /// determined, this method will panic.
+    ///
+    /// In-bounds pointers are never null, so the method will never panic for
+    /// such pointers.
     ///
     /// # Examples
     ///
@@ -35,7 +38,7 @@ impl<T: ?Sized> *const T {
     /// assert!(!ptr.is_null());
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    #[rustc_const_stable(feature = "const_ptr_is_null", since = "CURRENT_RUSTC_VERSION")]
+    #[rustc_const_stable(feature = "const_ptr_is_null", since = "1.84.0")]
     #[rustc_diagnostic_item = "ptr_const_is_null"]
     #[inline]
     #[rustc_allow_const_fn_unstable(const_eval_select)]
@@ -119,7 +122,6 @@ impl<T: ?Sized> *const T {
     /// println!("{:?}", unsafe { &*bad });
     /// ```
     #[unstable(feature = "set_ptr_value", issue = "75091")]
-    #[cfg_attr(bootstrap, rustc_const_stable(feature = "ptr_metadata_const", since = "1.83.0"))]
     #[must_use = "returns a new pointer rather than modifying its argument"]
     #[inline]
     pub const fn with_metadata_of<U>(self, meta: *const U) -> *const U
@@ -165,7 +167,7 @@ impl<T: ?Sized> *const T {
     /// This is a [Strict Provenance][crate::ptr#strict-provenance] API.
     #[must_use]
     #[inline(always)]
-    #[stable(feature = "strict_provenance", since = "CURRENT_RUSTC_VERSION")]
+    #[stable(feature = "strict_provenance", since = "1.84.0")]
     pub fn addr(self) -> usize {
         // A pointer-to-integer transmute currently has exactly the right semantics: it returns the
         // address without exposing the provenance. Note that this is *not* a stable guarantee about
@@ -199,7 +201,7 @@ impl<T: ?Sized> *const T {
     /// [`with_exposed_provenance`]: with_exposed_provenance
     #[must_use]
     #[inline(always)]
-    #[stable(feature = "exposed_provenance", since = "CURRENT_RUSTC_VERSION")]
+    #[stable(feature = "exposed_provenance", since = "1.84.0")]
     pub fn expose_provenance(self) -> usize {
         self.cast::<()>() as usize
     }
@@ -217,7 +219,7 @@ impl<T: ?Sized> *const T {
     /// This is a [Strict Provenance][crate::ptr#strict-provenance] API.
     #[must_use]
     #[inline]
-    #[stable(feature = "strict_provenance", since = "CURRENT_RUSTC_VERSION")]
+    #[stable(feature = "strict_provenance", since = "1.84.0")]
     pub fn with_addr(self, addr: usize) -> Self {
         // This should probably be an intrinsic to avoid doing any sort of arithmetic, but
         // meanwhile, we can implement it with `wrapping_offset`, which preserves the pointer's
@@ -236,7 +238,7 @@ impl<T: ?Sized> *const T {
     /// This is a [Strict Provenance][crate::ptr#strict-provenance] API.
     #[must_use]
     #[inline]
-    #[stable(feature = "strict_provenance", since = "CURRENT_RUSTC_VERSION")]
+    #[stable(feature = "strict_provenance", since = "1.84.0")]
     pub fn map_addr(self, f: impl FnOnce(usize) -> usize) -> Self {
         self.with_addr(f(self.addr()))
     }
@@ -260,6 +262,13 @@ impl<T: ?Sized> *const T {
     ///
     /// When calling this method, you have to ensure that *either* the pointer is null *or*
     /// the pointer is [convertible to a reference](crate::ptr#pointer-to-reference-conversion).
+    ///
+    /// # Panics during const evaluation
+    ///
+    /// This method will panic during const evaluation if the pointer cannot be
+    /// determined to be null or not. See [`is_null`] for more information.
+    ///
+    /// [`is_null`]: #method.is_null
     ///
     /// # Examples
     ///
@@ -288,7 +297,7 @@ impl<T: ?Sized> *const T {
     /// }
     /// ```
     #[stable(feature = "ptr_as_ref", since = "1.9.0")]
-    #[rustc_const_stable(feature = "const_ptr_is_null", since = "CURRENT_RUSTC_VERSION")]
+    #[rustc_const_stable(feature = "const_ptr_is_null", since = "1.84.0")]
     #[inline]
     pub const unsafe fn as_ref<'a>(self) -> Option<&'a T> {
         // SAFETY: the caller must guarantee that `self` is valid
@@ -338,6 +347,13 @@ impl<T: ?Sized> *const T {
     /// When calling this method, you have to ensure that *either* the pointer is null *or*
     /// the pointer is [convertible to a reference](crate::ptr#pointer-to-reference-conversion).
     ///
+    /// # Panics during const evaluation
+    ///
+    /// This method will panic during const evaluation if the pointer cannot be
+    /// determined to be null or not. See [`is_null`] for more information.
+    ///
+    /// [`is_null`]: #method.is_null
+    ///
     /// # Examples
     ///
     /// ```
@@ -353,7 +369,6 @@ impl<T: ?Sized> *const T {
     /// ```
     #[inline]
     #[unstable(feature = "ptr_as_uninit", issue = "75402")]
-    #[rustc_const_unstable(feature = "ptr_as_uninit", issue = "75402")]
     pub const unsafe fn as_uninit_ref<'a>(self) -> Option<&'a MaybeUninit<T>>
     where
         T: Sized,
@@ -412,12 +427,11 @@ impl<T: ?Sized> *const T {
         // Precondition 1: the computed offset `count * size_of::<T>()` does not overflow `isize`.
         // Precondition 2: adding the computed offset to `self` does not cause overflow.
         // These two preconditions are combined for performance reason, as multiplication is computationally expensive in Kani.
-        count.checked_mul(core::mem::size_of::<T>() as isize)
-        .map_or(false, |computed_offset| (self as isize).checked_add(computed_offset).is_some()) &&
+        count.checked_mul(core::mem::size_of::<T>() as isize).is_some_and(|computed_offset| (self as isize).checked_add(computed_offset).is_some()) &&
         // Precondition 3: If `T` is a unit type (`size_of::<T>() == 0`), this check is unnecessary as it has no allocated memory.
         // Otherwise, for non-unit types, `self` and `self.wrapping_offset(count)` should point to the same allocated object,
         // restricting `count` to prevent crossing allocation boundaries.
-        ((core::mem::size_of::<T>() == 0) || (core::ub_checks::same_allocation(self, self.wrapping_offset(count))))
+        (core::mem::size_of::<T>() == 0 || core::ub_checks::same_allocation(self, self.wrapping_offset(count)))
     )]
     // Postcondition: If `T` is a unit type (`size_of::<T>() == 0`), no allocation check is needed.
     // Otherwise, for non-unit types, ensure that `self` and `result` point to the same allocated object,
@@ -477,19 +491,14 @@ impl<T: ?Sized> *const T {
     #[rustc_const_stable(feature = "const_pointer_byte_offsets", since = "1.75.0")]
     #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
     #[requires(
-        // If count is zero, any pointer is valid including null pointer.
-        (count == 0) ||
-        // Else if count is not zero, then ensure that adding `count` doesn't cause 
-        // overflow and that both pointers `self` and the result are in the same 
-        // allocation 
-        ((self.addr() as isize).checked_add(count).is_some() &&
-            core::ub_checks::same_allocation(self, self.wrapping_byte_offset(count)))
+        count == 0 ||
+        (
+            (core::mem::size_of_val_raw(self) > 0) &&
+            (self.addr() as isize).checked_add(count).is_some()) &&
+            (core::ub_checks::same_allocation(self, self.wrapping_byte_offset(count))
+        )
     )]
-    #[ensures(|&result|
-        // The resulting pointer should either be unchanged or still point to the same allocation
-        (self.addr() == result.addr()) ||
-        (core::ub_checks::same_allocation(self, result))
-    )]
+    #[ensures(|result| core::mem::size_of_val_raw(self) == 0 || core::ub_checks::same_allocation(self, *result))]
     pub const unsafe fn byte_offset(self, count: isize) -> Self {
         // SAFETY: the caller must uphold the safety contract for `offset`.
         unsafe { self.cast::<u8>().offset(count).with_metadata_of(self) }
@@ -539,11 +548,12 @@ impl<T: ?Sized> *const T {
     /// let mut out = String::new();
     /// while ptr != end_rounded_up {
     ///     unsafe {
-    ///         write!(&mut out, "{}, ", *ptr).unwrap();
+    ///         write!(&mut out, "{}, ", *ptr)?;
     ///     }
     ///     ptr = ptr.wrapping_offset(step);
     /// }
     /// assert_eq!(out.as_str(), "1, 3, 5, ");
+    /// # std::fmt::Result::Ok(())
     /// ```
     #[stable(feature = "ptr_wrapping_offset", since = "1.16.0")]
     #[must_use = "returns a new pointer rather than modifying its argument"]
@@ -974,7 +984,7 @@ impl<T: ?Sized> *const T {
         // Precondition 2: adding the computed offset to `self` does not cause overflow.
         // These two preconditions are combined for performance reason, as multiplication is computationally expensive in Kani. 
         count.checked_mul(core::mem::size_of::<T>())
-        .map_or(false, |computed_offset| {
+        .is_some_and(|computed_offset| {
             computed_offset <= isize::MAX as usize && (self as isize).checked_add(computed_offset as isize).is_some()
         }) &&
         // Precondition 3: If `T` is a unit type (`size_of::<T>() == 0`), this check is unnecessary as it has no allocated memory.
@@ -1043,15 +1053,15 @@ impl<T: ?Sized> *const T {
         (count == 0) ||
         // Else if count is not zero, then ensure that adding `count` doesn't cause 
         // overflow and that both pointers `self` and the result are in the same 
-        // allocation 
-        ((self.addr() as isize).checked_add(count as isize).is_some() &&
-            core::ub_checks::same_allocation(self, self.wrapping_byte_add(count)))
+        // allocation
+        (
+            (count <= isize::MAX as usize) &&
+            (core::mem::size_of_val_raw(self) > 0) &&
+            ((self.addr() as isize).checked_add(count as isize).is_some()) &&
+            (core::ub_checks::same_allocation(self, self.wrapping_byte_add(count)))
+        )
     )]
-    #[ensures(|&result|
-        // The resulting pointer should either be unchanged or still point to the same allocation
-        (self.addr() == result.addr()) ||
-        (core::ub_checks::same_allocation(self, result))
-    )]
+    #[ensures(|result| core::mem::size_of_val_raw(self) == 0 || core::ub_checks::same_allocation(self, *result))]
     pub const unsafe fn byte_add(self, count: usize) -> Self {
         // SAFETY: the caller must uphold the safety contract for `add`.
         unsafe { self.cast::<u8>().add(count).with_metadata_of(self) }
@@ -1104,7 +1114,6 @@ impl<T: ?Sized> *const T {
     #[stable(feature = "pointer_methods", since = "1.26.0")]
     #[must_use = "returns a new pointer rather than modifying its argument"]
     #[rustc_const_stable(feature = "const_ptr_offset", since = "1.61.0")]
-    #[cfg_attr(bootstrap, rustc_allow_const_fn_unstable(unchecked_neg))]
     #[inline(always)]
     #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
     #[requires(
@@ -1112,7 +1121,7 @@ impl<T: ?Sized> *const T {
         // Precondition 2: substracting the computed offset from `self` does not cause overflow.
         // These two preconditions are combined for performance reason, as multiplication is computationally expensive in Kani.
         count.checked_mul(core::mem::size_of::<T>())
-        .map_or(false, |computed_offset| {
+        .is_some_and(|computed_offset| {
             computed_offset <= isize::MAX as usize && (self as isize).checked_sub(computed_offset as isize).is_some()
         }) &&
         // Precondition 3: If `T` is a unit type (`size_of::<T>() == 0`), this check is unnecessary as it has no allocated memory.
@@ -1187,15 +1196,15 @@ impl<T: ?Sized> *const T {
         (count == 0) ||
         // Else if count is not zero, then ensure that subtracting `count` doesn't 
         // cause overflow and that both pointers `self` and the result are in the 
-        // same allocation 
-        ((self.addr() as isize).checked_sub(count as isize).is_some() &&
-            core::ub_checks::same_allocation(self, self.wrapping_byte_sub(count)))
+        // same allocation.
+        (
+            (count <= isize::MAX as usize) &&
+            (core::mem::size_of_val_raw(self) > 0) &&
+            ((self.addr() as isize).checked_sub(count as isize).is_some()) &&
+            (core::ub_checks::same_allocation(self, self.wrapping_byte_sub(count)))
+        )
     )]
-    #[ensures(|&result|
-        // The resulting pointer should either be unchanged or still point to the same allocation
-        (self.addr() == result.addr()) ||
-        (core::ub_checks::same_allocation(self, result))
-    )]
+    #[ensures(|result| core::mem::size_of_val_raw(self) == 0 || core::ub_checks::same_allocation(self, *result))]
     pub const unsafe fn byte_sub(self, count: usize) -> Self {
         // SAFETY: the caller must uphold the safety contract for `sub`.
         unsafe { self.cast::<u8>().sub(count).with_metadata_of(self) }
@@ -1245,11 +1254,12 @@ impl<T: ?Sized> *const T {
     /// let mut out = String::new();
     /// while ptr != end_rounded_up {
     ///     unsafe {
-    ///         write!(&mut out, "{}, ", *ptr).unwrap();
+    ///         write!(&mut out, "{}, ", *ptr)?;
     ///     }
     ///     ptr = ptr.wrapping_add(step);
     /// }
     /// assert_eq!(out, "1, 3, 5, ");
+    /// # std::fmt::Result::Ok(())
     /// ```
     #[stable(feature = "pointer_methods", since = "1.26.0")]
     #[must_use = "returns a new pointer rather than modifying its argument"]
@@ -1323,11 +1333,12 @@ impl<T: ?Sized> *const T {
     /// let mut out = String::new();
     /// while ptr != start_rounded_down {
     ///     unsafe {
-    ///         write!(&mut out, "{}, ", *ptr).unwrap();
+    ///         write!(&mut out, "{}, ", *ptr)?;
     ///     }
     ///     ptr = ptr.wrapping_sub(step);
     /// }
     /// assert_eq!(out, "5, 3, 1, ");
+    /// # std::fmt::Result::Ok(())
     /// ```
     #[stable(feature = "pointer_methods", since = "1.26.0")]
     #[must_use = "returns a new pointer rather than modifying its argument"]
@@ -1643,6 +1654,21 @@ impl<T> *const [T] {
         self as *const T
     }
 
+    /// Gets a raw pointer to the underlying array.
+    ///
+    /// If `N` is not exactly equal to the length of `self`, then this method returns `None`.
+    #[unstable(feature = "slice_as_array", issue = "133508")]
+    #[inline]
+    #[must_use]
+    pub const fn as_array<const N: usize>(self) -> Option<*const [T; N]> {
+        if self.len() == N {
+            let me = self.as_ptr() as *const [T; N];
+            Some(me)
+        } else {
+            None
+        }
+    }
+
     /// Returns a raw pointer to an element or subslice, without doing bounds
     /// checking.
     ///
@@ -1709,9 +1735,15 @@ impl<T> *const [T] {
     ///
     /// [valid]: crate::ptr#safety
     /// [allocated object]: crate::ptr#allocated-object
+    ///
+    /// # Panics during const evaluation
+    ///
+    /// This method will panic during const evaluation if the pointer cannot be
+    /// determined to be null or not. See [`is_null`] for more information.
+    ///
+    /// [`is_null`]: #method.is_null
     #[inline]
     #[unstable(feature = "ptr_as_uninit", issue = "75402")]
-    #[rustc_const_unstable(feature = "ptr_as_uninit", issue = "75402")]
     pub const unsafe fn as_uninit_slice<'a>(self) -> Option<&'a [MaybeUninit<T>]> {
         if self.is_null() {
             None
@@ -1760,7 +1792,7 @@ impl<T, const N: usize> *const [T; N] {
     }
 }
 
-// Equality for pointers
+/// Pointer equality is by address, as produced by the [`<*const T>::addr`](pointer::addr) method.
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: ?Sized> PartialEq for *const T {
     #[inline]
@@ -1770,10 +1802,11 @@ impl<T: ?Sized> PartialEq for *const T {
     }
 }
 
+/// Pointer equality is an equivalence relation.
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: ?Sized> Eq for *const T {}
 
-// Comparison for pointers
+/// Pointer comparison is by address, as produced by the `[`<*const T>::addr`](pointer::addr)` method.
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: ?Sized> Ord for *const T {
     #[inline]
@@ -1789,6 +1822,7 @@ impl<T: ?Sized> Ord for *const T {
     }
 }
 
+/// Pointer comparison is by address, as produced by the `[`<*const T>::addr`](pointer::addr)` method.
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: ?Sized> PartialOrd for *const T {
     #[inline]
@@ -2269,7 +2303,6 @@ mod verify {
     );
 
     #[kani::proof_for_contract(<*const ()>::byte_offset)]
-    #[kani::should_panic]
     pub fn check_const_byte_offset_unit_invalid_count() {
         let val = ();
         let ptr: *const () = &val;
@@ -2300,7 +2333,7 @@ mod verify {
             pub fn $proof_name() {
                 let val = ();
                 let ptr: *const () = &val;
-                let count: isize = mem::size_of::<()>() as isize;
+                let count: isize = kani::any();
                 unsafe {
                     ptr.byte_offset(count);
                 }
@@ -2313,7 +2346,7 @@ mod verify {
                 let val = ();
                 let ptr: *const () = &val;
                 //byte_add and byte_sub need count to be usize unlike byte_offset
-                let count: usize = mem::size_of::<()>();
+                let count: usize = kani::any();
                 unsafe {
                     ptr.$fn_name(count);
                 }
