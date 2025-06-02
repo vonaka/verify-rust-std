@@ -194,7 +194,7 @@ jobs:
         sed -i "s/commit = .*/commit = \"${KANI_COMMIT_HASH}\"/" tool_config/kani-version.toml
         git -c user.name=gitbot -c user.email=git@bot \
           commit -m "Update Kani version to ${KANI_COMMIT_HASH}" tool_config/kani-version.toml
-        
+
         # Try to automatically patch the VeriFast proofs
         pushd verifast-proofs
         if bash ./patch-verifast-proofs.sh; then
@@ -203,9 +203,11 @@ jobs:
               commit . -m "Update VeriFast proofs"
           else
             # The original files have not changed; no updates to the VeriFast proofs are necessary.
+            true
           fi
         else
           # Patching the VeriFast proofs failed; requires manual intervention.
+          true
         fi
         popd
 
