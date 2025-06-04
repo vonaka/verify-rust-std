@@ -392,11 +392,7 @@ where
     #[rustc_const_stable(feature = "nonzero", since = "1.28.0")]
     #[must_use]
     #[inline]
-    // #[rustc_allow_const_fn_unstable(const_refs_to_cell)] enables byte-level
-    // comparisons within const functions. This is needed here to validate the
-    // contents of `T` by converting a pointer to a `u8` slice for our `requires`
-    // and `ensures` checks.
-    #[rustc_allow_const_fn_unstable(const_refs_to_cell)]
+    #[track_caller]
     #[requires({
         let size = core::mem::size_of::<T>();
         let ptr = &n as *const T as *const u8;
@@ -452,6 +448,7 @@ where
     #[unstable(feature = "nonzero_from_mut", issue = "106290")]
     #[must_use]
     #[inline]
+    #[track_caller]
     pub unsafe fn from_mut_unchecked(n: &mut T) -> &mut Self {
         match Self::from_mut(n) {
             Some(n) => n,
