@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::{TrustedLen, UncheckedIterator};
 use crate::mem::ManuallyDrop;
 use crate::ptr::drop_in_place;
@@ -66,11 +72,30 @@ impl<T> ExactSizeIterator for Drain<'_, T> {
 unsafe impl<T> TrustedLen for Drain<'_, T> {}
 
 impl<T> UncheckedIterator for Drain<'_, T> {
+    #[requires(self.len() > 0)]
     unsafe fn next_unchecked(&mut self) -> T {
         // SAFETY: `Drain` is 1:1 with the inner iterator, so if the caller promised
         // that there's an element left, the inner iterator has one too.
         let p: *const T = unsafe { self.0.next_unchecked() };
         // SAFETY: The iterator was already advanced, so we won't drop this later.
         unsafe { p.read() }
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(<Drain<'_, i32>>::next_unchecked)]
+    fn verify_next_unchecked() {
+        // Create a small array of integers for testing
+        let mut array: [i32; 3] = [kani::any(), kani::any(), kani::any()];
+
+        // Create a Drain iterator from the array
+        let mut drain = Drain(array.iter_mut());
+
+        // Call the function under verification
+        unsafe {
+            let _result = drain.next_unchecked();
+        }
     }
 }

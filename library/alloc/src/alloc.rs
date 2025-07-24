@@ -5,6 +5,15 @@
 #[stable(feature = "alloc_module", since = "1.28.0")]
 #[doc(inline)]
 pub use core::alloc::*;
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::hint;
 use core::ptr::{self, NonNull};
 
@@ -85,6 +94,7 @@ pub struct Global;
 #[must_use = "losing the pointer will leak memory"]
 #[inline]
 #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+#[requires(layout.size() > 0 && layout.align() != 0)]
 pub unsafe fn alloc(layout: Layout) -> *mut u8 {
     unsafe {
         // Make sure we don't accidentally allow omitting the allocator shim in
@@ -110,6 +120,7 @@ pub unsafe fn alloc(layout: Layout) -> *mut u8 {
 #[stable(feature = "global_alloc", since = "1.28.0")]
 #[inline]
 #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+#[requires(layout.align() != 0)]
 pub unsafe fn dealloc(ptr: *mut u8, layout: Layout) {
     unsafe { __rust_dealloc(ptr, layout.size(), layout.align()) }
 }
@@ -130,6 +141,7 @@ pub unsafe fn dealloc(ptr: *mut u8, layout: Layout) {
 #[must_use = "losing the pointer will leak memory"]
 #[inline]
 #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+#[requires(layout.size() > 0 && layout.align() != 0 && new_size > 0)]
 pub unsafe fn realloc(ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
     unsafe { __rust_realloc(ptr, layout.size(), layout.align(), new_size) }
 }
@@ -168,6 +180,7 @@ pub unsafe fn realloc(ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 
 #[must_use = "losing the pointer will leak memory"]
 #[inline]
 #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+#[requires(layout.size() > 0 && layout.align() != 0)]
 pub unsafe fn alloc_zeroed(layout: Layout) -> *mut u8 {
     unsafe {
         // Make sure we don't accidentally allow omitting the allocator shim in
@@ -196,6 +209,7 @@ impl Global {
     // SAFETY: Same as `Allocator::grow`
     #[inline]
     #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+    #[requires(new_layout.size() >= old_layout.size())]
     unsafe fn grow_impl(
         &self,
         ptr: NonNull<u8>,
@@ -258,6 +272,7 @@ unsafe impl Allocator for Global {
 
     #[inline]
     #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+    #[requires(layout.align() != 0)]
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
         if layout.size() != 0 {
             // SAFETY:
@@ -298,6 +313,7 @@ unsafe impl Allocator for Global {
 
     #[inline]
     #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+    #[requires(new_layout.size() <= old_layout.size())]
     unsafe fn shrink(
         &self,
         ptr: NonNull<u8>,
@@ -346,6 +362,7 @@ unsafe impl Allocator for Global {
 #[lang = "exchange_malloc"]
 #[inline]
 #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+#[requires(size > 0 && align != 0)]
 unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
     let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
     match Global.allocate(layout) {

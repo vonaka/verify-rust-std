@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::alloc::Layout;
 use crate::{cmp, ptr};
 

@@ -4,6 +4,12 @@
 //! [^1]: Burger, R. G. and Dybvig, R. K. 1996. Printing floating-point numbers
 //!   quickly and accurately. SIGPLAN Not. 31, 5 (May. 1996), 108-116.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::cmp::Ordering;
 use crate::mem::MaybeUninit;
 use crate::num::bignum::{Big32x40 as Big, Digit32 as Digit};
@@ -27,6 +33,8 @@ static POW5TO256: [Digit; 19] = [
 ];
 
 #[doc(hidden)]
+#[requires(n < 512)]
+#[cfg_attr(kani, kani::modifies(x))]
 pub fn mul_pow10(x: &mut Big, n: usize) -> &mut Big {
     debug_assert!(n < 512);
     // Save ourself the left shift for the smallest cases.
@@ -59,6 +67,7 @@ pub fn mul_pow10(x: &mut Big, n: usize) -> &mut Big {
     x.mul_pow2(n)
 }
 
+#[cfg_attr(kani, kani::modifies(x))]
 fn div_2pow10(x: &mut Big, mut n: usize) -> &mut Big {
     let largest = POW10.len() - 1;
     while n > largest {
@@ -70,6 +79,8 @@ fn div_2pow10(x: &mut Big, mut n: usize) -> &mut Big {
 }
 
 // only usable when `x < 16 * scale`; `scaleN` should be `scale.mul_small(N)`
+#[requires(*x < *scale)]
+#[cfg_attr(kani, kani::modifies(x))]
 fn div_rem_upto_16<'a>(
     x: &'a mut Big,
     scale: &Big,
@@ -99,6 +110,11 @@ fn div_rem_upto_16<'a>(
 }
 
 /// The shortest mode implementation for Dragon.
+#[requires(d.mant > 0)]
+#[requires(d.minus > 0)]
+#[requires(d.plus > 0)]
+#[requires(buf.len() >= MAX_SIG_DIGITS)]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn format_shortest<'a>(
     d: &Decoded,
     buf: &'a mut [MaybeUninit<u8>],
@@ -259,6 +275,11 @@ pub fn format_shortest<'a>(
 }
 
 /// The exact and fixed mode implementation for Dragon.
+#[requires(d.mant > 0)]
+#[requires(d.minus > 0)]
+#[requires(d.plus > 0)]
+#[requires(buf.len() > 0)]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn format_exact<'a>(
     d: &Decoded,
     buf: &'a mut [MaybeUninit<u8>],
@@ -386,4 +407,100 @@ pub fn format_exact<'a>(
 
     // SAFETY: we initialized that memory above.
     (unsafe { buf[..len].assume_init_ref() }, k)
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(mul_pow10)]
+    fn proof_mul_pow10() {
+        // Create a Big number to work with
+        let mut big = Big::from_small(kani::any_where(|&x| x < 100));
+
+        // Choose a value for n that satisfies the precondition (n < 512)
+        let n = kani::any_where(|&n| n < 512);
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = mul_pow10(&mut big, n);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(div_2pow10)]
+    fn proof_div_2pow10() {
+        // Create a Big number to work with
+        let mut big = Big::from_small(kani::any_where(|&x| x < 100));
+
+        // Choose a value for n (no precondition on n, so any value is fine)
+        let n = kani::any_where(|&n| n < 10);
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = div_2pow10(&mut big, n);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(div_rem_upto_16)]
+    fn proof_div_rem_upto_16() {
+        // Create a scale value
+        let scale_value = kani::any_where(|&x| x > 0 && x < 100);
+        let scale = Big::from_small(scale_value);
+
+        // Create scale2, scale4, and scale8 as multiples of scale
+        let mut scale2 = scale.clone();
+        scale2.mul_pow2(1);
+
+        let mut scale4 = scale.clone();
+        scale4.mul_pow2(2);
+
+        let mut scale8 = scale.clone();
+        scale8.mul_pow2(3);
+
+        // Create x such that *x < *scale
+        let x_value = kani::any_where(|&x| x < scale_value);
+        let mut x = Big::from_small(x_value);
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = div_rem_upto_16(&mut x, &scale, &scale2, &scale4, &scale8);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(format_shortest)]
+    fn proof_format_shortest() {
+        // Create a Decoded struct with valid values
+        let decoded = Decoded {
+            mant: kani::any_where(|&m| m > 0 && m < 1000),
+            minus: kani::any_where(|&m| m > 0 && m < 100),
+            plus: kani::any_where(|&p| p > 0 && p < 100),
+            exp: kani::any_where(|&e| e >= -10 && e <= 10),
+            inclusive: kani::any(),
+        };
+
+        // Create a buffer with at least MAX_SIG_DIGITS elements
+        let mut buffer = [MaybeUninit::<u8>::uninit(); MAX_SIG_DIGITS + 1];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = format_shortest(&decoded, &mut buffer);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(format_exact)]
+    fn proof_format_exact() {
+        // Create a Decoded struct with valid values
+        let decoded = Decoded {
+            mant: kani::any_where(|&m| m > 0 && m < 1000),
+            minus: kani::any_where(|&m| m > 0 && m < 100),
+            plus: kani::any_where(|&p| p > 0 && p < 100),
+            exp: kani::any_where(|&e| e >= -10 && e <= 10),
+            inclusive: kani::any(),
+        };
+
+        // Create a buffer with at least one element
+        let mut buffer = [MaybeUninit::<u8>::uninit(); 10];
+
+        // Choose a limit value
+        let limit = kani::any_where(|&l| l >= -10 && l <= 10);
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = format_exact(&decoded, &mut buffer, limit);
+    }
 }

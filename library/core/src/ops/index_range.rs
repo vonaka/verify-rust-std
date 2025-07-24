@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::{FusedIterator, TrustedLen};
 use crate::num::NonZero;
 use crate::ops::{NeverShortCircuit, Try};
@@ -20,6 +26,7 @@ impl IndexRange {
     /// - `start <= end`
     #[inline]
     #[track_caller]
+    #[requires(start <= end)]
     pub(crate) const unsafe fn new_unchecked(start: usize, end: usize) -> Self {
         ub_checks::assert_unsafe_precondition!(
             check_library_ub,
@@ -54,6 +61,8 @@ impl IndexRange {
     /// # Safety
     /// - Can only be called when `start < end`, aka when `len > 0`.
     #[inline]
+    #[requires(self.start < self.end)]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn next_unchecked(&mut self) -> usize {
         debug_assert!(self.start < self.end);
 
@@ -66,6 +75,8 @@ impl IndexRange {
     /// # Safety
     /// - Can only be called when `start < end`, aka when `len > 0`.
     #[inline]
+    #[requires(self.start < self.end)]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn next_back_unchecked(&mut self) -> usize {
         debug_assert!(self.start < self.end);
 
@@ -225,3 +236,41 @@ impl ExactSizeIterator for IndexRange {
 unsafe impl TrustedLen for IndexRange {}
 
 impl FusedIterator for IndexRange {}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(IndexRange::new_unchecked)]
+    fn proof_new_unchecked() {
+        let start: usize = kani::any();
+        let end: usize = kani::any();
+
+        // Call the function with inputs
+        unsafe { IndexRange::new_unchecked(start, end) };
+    }
+
+    #[kani::proof_for_contract(IndexRange::next_unchecked)]
+    fn proof_next_unchecked() {
+        // Create a valid IndexRange
+        let start: usize = kani::any();
+        let end: usize = kani::any();
+
+        // Create an IndexRange instance
+        let mut range = unsafe { IndexRange::new_unchecked(start, end) };
+
+        // Call the function
+        unsafe { range.next_unchecked() };
+    }
+
+    #[kani::proof_for_contract(IndexRange::next_back_unchecked)]
+    fn proof_next_back_unchecked() {
+        // Create a valid IndexRange
+        let start: usize = kani::any();
+        let end: usize = kani::any();
+
+        // Create an IndexRange instance
+        let mut range = unsafe { IndexRange::new_unchecked(start, end) };
+
+        // Call the function
+        unsafe { range.next_back_unchecked() };
+    }
+}

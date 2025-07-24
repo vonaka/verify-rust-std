@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use core::array;
 use core::mem::MaybeUninit;
 use core::ops::ControlFlow;
@@ -213,4 +219,65 @@ where
 unsafe impl<I: InPlaceIterable, P> InPlaceIterable for Filter<I, P> {
     const EXPAND_BY: Option<NonZero<usize>> = I::EXPAND_BY;
     const MERGE_BY: Option<NonZero<usize>> = I::MERGE_BY;
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Filter::as_inner)]
+    fn proof_for_filter_as_inner() {
+        use core::iter::SourceIter;
+
+        // Create a simple iterator type that implements SourceIter
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+        }
+
+        // Implement SourceIter for SimpleIter
+        unsafe impl SourceIter for SimpleIter {
+            type Source = [u32; 5];
+
+            unsafe fn as_inner(&mut self) -> &mut Self::Source {
+                &mut self.data
+            }
+        }
+
+        // Create a simple predicate function for Filter
+        fn is_even(x: &u32) -> bool {
+            x % 2 == 0
+        }
+
+        // Create a SimpleIter instance
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: 0,
+        };
+
+        // Create a Filter with our SimpleIter
+        let mut filter = Filter {
+            iter,
+            predicate: is_even,
+        };
+
+        // Call the function
+        unsafe {
+            let _ = filter.as_inner();
+        }
+    }
 }

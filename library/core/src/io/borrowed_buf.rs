@@ -1,5 +1,11 @@
 #![unstable(feature = "core_io_borrowed_buf", issue = "117693")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::fmt::{self, Debug, Formatter};
 use crate::mem::{self, MaybeUninit};
 use crate::{cmp, ptr};
@@ -159,6 +165,8 @@ impl<'data> BorrowedBuf<'data> {
     ///
     /// The caller must ensure that the first `n` unfilled bytes of the buffer have already been initialized.
     #[inline]
+    #[requires(n <= self.capacity())]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub unsafe fn set_init(&mut self, n: usize) -> &mut Self {
         self.init = cmp::max(self.init, n);
         self
@@ -280,6 +288,8 @@ impl<'a> BorrowedCursor<'a> {
     ///
     /// Panics if there are less than `n` bytes initialized.
     #[inline]
+    #[requires(n <= self.buf.init - self.buf.filled)]
+    #[cfg_attr(kani, kani::modifies(self.buf))]
     pub fn advance(&mut self, n: usize) -> &mut Self {
         // The substraction cannot underflow by invariant of this type.
         assert!(n <= self.buf.init - self.buf.filled);
@@ -299,6 +309,8 @@ impl<'a> BorrowedCursor<'a> {
     /// The caller must ensure that the first `n` bytes of the cursor have been properly
     /// initialised.
     #[inline]
+    #[requires(n <= self.capacity())]
+    #[cfg_attr(kani, kani::modifies(self.buf))]
     pub unsafe fn advance_unchecked(&mut self, n: usize) -> &mut Self {
         self.buf.filled += n;
         self.buf.init = cmp::max(self.buf.init, self.buf.filled);
@@ -328,6 +340,8 @@ impl<'a> BorrowedCursor<'a> {
     ///
     /// The caller must ensure that the first `n` bytes of the buffer have already been initialized.
     #[inline]
+    #[requires(n <= self.capacity())]
+    #[cfg_attr(kani, kani::modifies(self.buf))]
     pub unsafe fn set_init(&mut self, n: usize) -> &mut Self {
         self.buf.init = cmp::max(self.buf.init, self.buf.filled + n);
         self
@@ -352,5 +366,95 @@ impl<'a> BorrowedCursor<'a> {
             self.set_init(buf.len());
         }
         self.buf.filled += buf.len();
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[kani::proof_for_contract(BorrowedBuf::set_init)]
+    fn proof_for_contract_borrowed_buf_set_init() {
+        // Create a small buffer for testing
+        let mut data = [MaybeUninit::<u8>::uninit(); 10];
+
+        // Create a BorrowedBuf with the buffer
+        let mut buf = BorrowedBuf::from(&mut data[..]);
+
+        // Generate a value for n that satisfies the precondition n <= self.capacity()
+        let n = kani::any::<usize>() % (buf.capacity() + 1);
+
+        // Call the function with the constrained inputs
+        unsafe {
+            buf.set_init(n);
+        }
+    }
+
+    #[kani::proof_for_contract(BorrowedCursor::advance)]
+    fn proof_for_contract_borrowed_cursor_advance() {
+        // Create a small buffer for testing
+        let mut data = [MaybeUninit::<u8>::uninit(); 10];
+
+        // Create a BorrowedBuf with the buffer
+        let mut buf = BorrowedBuf::from(&mut data[..]);
+
+        // Initialize some portion of the buffer
+        let init_len = 5;
+        unsafe {
+            buf.set_init(init_len);
+        }
+
+        // Create a cursor over the unfilled part of the buffer
+        let mut cursor = buf.unfilled();
+
+        // Generate a value for n that satisfies the precondition n <= self.buf.init - self.buf.filled
+        let available = cursor.buf.init - cursor.buf.filled;
+        let n = if available > 0 {
+            kani::any::<usize>() % (available + 1)
+        } else {
+            0
+        };
+
+        // Call the function with the constrained inputs
+        cursor.advance(n);
+    }
+
+    #[kani::proof_for_contract(BorrowedCursor::advance_unchecked)]
+    fn proof_for_contract_borrowed_cursor_advance_unchecked() {
+        // Create a small buffer for testing
+        let mut data = [MaybeUninit::<u8>::uninit(); 10];
+
+        // Create a BorrowedBuf with the buffer
+        let mut buf = BorrowedBuf::from(&mut data[..]);
+
+        // Create a cursor over the unfilled part of the buffer
+        let mut cursor = buf.unfilled();
+
+        // Generate a value for n that satisfies the precondition n <= self.capacity()
+        let n = kani::any::<usize>() % (cursor.capacity() + 1);
+
+        // Call the function with the constrained inputs
+        unsafe {
+            cursor.advance_unchecked(n);
+        }
+    }
+
+    #[kani::proof_for_contract(BorrowedCursor::set_init)]
+    fn proof_for_contract_borrowed_cursor_set_init() {
+        // Create a small buffer for testing
+        let mut data = [MaybeUninit::<u8>::uninit(); 10];
+
+        // Create a BorrowedBuf with the buffer
+        let mut buf = BorrowedBuf::from(&mut data[..]);
+
+        // Create a cursor over the unfilled part of the buffer
+        let mut cursor = buf.unfilled();
+
+        // Generate a value for n that satisfies the precondition n <= self.capacity()
+        let n = kani::any::<usize>() % (cursor.capacity() + 1);
+
+        // Call the function with the constrained inputs
+        unsafe {
+            cursor.set_init(n);
+        }
     }
 }

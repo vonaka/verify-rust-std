@@ -1,6 +1,12 @@
 //! This module contains the hybrid top-level loop combining bottom-up Mergesort with top-down
 //! Quicksort.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::MaybeUninit;
 use crate::slice::sort::shared::find_existing_run;
 use crate::slice::sort::shared::smallsort::StableSmallSortTypeImpl;
@@ -17,6 +23,13 @@ use crate::{cmp, intrinsics};
 ///
 /// This is the main loop for driftsort, which uses powersort's heuristic to
 /// determine in which order to merge runs, see below for details.
+#[requires(v.len() >= 2)]
+#[requires(scratch.len() >= v.len().saturating_sub(v.len() / 2))]
+#[requires(v.len() < (1_usize << 62))]
+#[requires(v.len() <= isize::MAX as usize)]
+#[requires(v.len().saturating_add(65) / 64 <= 66)]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
+#[cfg_attr(kani, kani::modifies(scratch.as_mut_ptr()))]
 pub fn sort<T, F: FnMut(&T, &T) -> bool>(
     v: &mut [T],
     scratch: &mut [MaybeUninit<T>],
@@ -164,6 +177,8 @@ fn merge_tree_scale_factor(n: usize) -> u64 {
 // Note: merge_tree_depth output is < 64 when left < right as f*x and f*y must
 // differ in some bit, and is <= 64 always.
 #[inline(always)]
+#[requires(left < mid && mid < right)]
+#[requires(left < usize::MAX && mid < usize::MAX && right < usize::MAX)]
 fn merge_tree_depth(left: usize, mid: usize, right: usize, scale_factor: u64) -> u8 {
     let x = left as u64 + mid as u64;
     let y = mid as u64 + right as u64;
@@ -188,6 +203,10 @@ fn sqrt_approx(n: usize) -> usize {
 
 // Lazy logical runs as in Glidesort.
 #[inline(always)]
+#[requires(v.len() > 0)]
+#[requires(scratch.len() >= v.len())]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
+#[cfg_attr(kani, kani::modifies(scratch.as_mut_ptr()))]
 fn logical_merge<T, F: FnMut(&T, &T) -> bool>(
     v: &mut [T],
     scratch: &mut [MaybeUninit<T>],
@@ -223,6 +242,10 @@ fn logical_merge<T, F: FnMut(&T, &T) -> bool>(
 /// run. If not, the result depends on the value of `eager_sort`. If it is true,
 /// then a sorted run of length `T::SMALL_SORT_THRESHOLD` is returned, and if it
 /// is false an unsorted run of length `min_good_run_len` is returned.
+#[requires(v.len() > 0)]
+#[requires(scratch.len() >= v.len())]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
+#[cfg_attr(kani, kani::modifies(scratch.as_mut_ptr()))]
 fn create_run<T, F: FnMut(&T, &T) -> bool>(
     v: &mut [T],
     scratch: &mut [MaybeUninit<T>],
@@ -259,6 +282,10 @@ fn create_run<T, F: FnMut(&T, &T) -> bool>(
     }
 }
 
+#[requires(v.len() > 0)]
+#[requires(scratch.len() >= v.len())]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
+#[cfg_attr(kani, kani::modifies(scratch.as_mut_ptr()))]
 fn stable_quicksort<T, F: FnMut(&T, &T) -> bool>(
     v: &mut [T],
     scratch: &mut [MaybeUninit<T>],
@@ -294,5 +321,177 @@ impl DriftsortRun {
     #[inline(always)]
     fn len(self) -> usize {
         self.0 >> 1
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(sort)]
+    fn proof_sort() {
+        // Use a small but variable size
+        let size = 2 + (kani::any::<u8>() % 8) as usize;
+
+        // Create an array to sort
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size {
+            data[i] = kani::any();
+        }
+
+        // Create a scratch space that satisfies the requirement:
+        // scratch.len() >= v.len().saturating_sub(v.len() / 2)
+        let scratch_size = size.saturating_sub(size / 2);
+        let mut scratch = [MaybeUninit::<i32>::uninit(); 10];
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Call the function with valid inputs
+        sort(
+            &mut data[..size],
+            &mut scratch[..size],
+            kani::any(),
+            &mut is_less,
+        );
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(merge_tree_depth)]
+    fn proof_merge_tree_depth() {
+        // Choose values that satisfy left < mid < right
+        let left: usize = kani::any::<u8>() as usize;
+
+        // Ensure mid is greater than left
+        let mid_offset: usize = 1 + (kani::any::<u8>() as usize % 5);
+        let mid: usize = left + mid_offset;
+
+        // Ensure right is greater than mid
+        let right_offset: usize = 1 + (kani::any::<u8>() as usize % 5);
+        let right: usize = mid + right_offset;
+
+        // Calculate a valid scale factor
+        let scale_factor: u64 = 1 + kani::any::<u16>() as u64;
+
+        // Call the function with valid inputs
+        let _ = merge_tree_depth(left, mid, right, scale_factor);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(logical_merge)]
+    fn proof_logical_merge() {
+        // Use a small but variable size
+        let size = 1 + (kani::any::<u8>() % 9) as usize;
+
+        // Create an array to work with
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size {
+            data[i] = kani::any();
+        }
+
+        // Create a scratch space that's at least as large as the data array
+        let mut scratch = [MaybeUninit::<i32>::uninit(); 10];
+
+        // Create a variable split point
+        let split = if size > 1 {
+            1 + (kani::any::<u8>() as usize % (size - 1))
+        } else {
+            0
+        };
+
+        // Create DriftsortRun instances for left and right runs
+        let left_len = split;
+        let right_len = size - split;
+
+        // Create sorted or unsorted runs
+        let left_sorted: bool = kani::any();
+        let right_sorted: bool = kani::any();
+
+        let left = if left_sorted {
+            DriftsortRun::new_sorted(left_len)
+        } else {
+            DriftsortRun::new_unsorted(left_len)
+        };
+
+        let right = if right_sorted {
+            DriftsortRun::new_sorted(right_len)
+        } else {
+            DriftsortRun::new_unsorted(right_len)
+        };
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Call the function with valid inputs
+        let _ = logical_merge(
+            &mut data[..size],
+            &mut scratch[..size],
+            left,
+            right,
+            &mut is_less,
+        );
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(create_run)]
+    fn proof_create_run() {
+        // Use a small but variable size
+        let size = 1 + (kani::any::<u8>() % 9) as usize;
+
+        // Create an array to work with
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size {
+            data[i] = kani::any();
+        }
+
+        // Create a scratch space that's at least as large as the data array
+        let mut scratch = [MaybeUninit::<i32>::uninit(); 10];
+
+        // Choose a minimum good run length related to array size
+        let min_good_run_len = 1 + (kani::any::<u8>() as usize % size);
+
+        // Choose whether to use eager sorting or not
+        let eager_sort: bool = kani::any();
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Call the function with valid inputs
+        let _ = create_run(
+            &mut data[..size],
+            &mut scratch[..size],
+            min_good_run_len,
+            eager_sort,
+            &mut is_less,
+        );
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(stable_quicksort)]
+    fn proof_stable_quicksort() {
+        // Use a small but variable size
+        let size = 1 + (kani::any::<u8>() % 9) as usize;
+
+        // Create an array to sort
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size {
+            data[i] = kani::any();
+        }
+
+        // Create a scratch space that's at least as large as the data array
+        let mut scratch = [MaybeUninit::<i32>::uninit(); 10];
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Call the function with valid inputs
+        stable_quicksort(&mut data[..size], &mut scratch[..size], &mut is_less);
     }
 }

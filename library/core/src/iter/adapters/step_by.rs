@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::intrinsics;
 use crate::iter::{TrustedLen, TrustedRandomAccess, from_fn};
 use crate::num::NonZero;
@@ -40,6 +46,7 @@ impl<I> StepBy<I> {
     /// The `step` that was originally passed to `Iterator::step_by(step)`,
     /// aka `self.step_minus_one + 1`.
     #[inline]
+    #[requires(self.step_minus_one != usize::MAX)]
     fn original_step(&self) -> NonZero<usize> {
         // SAFETY: By type invariant, `step_minus_one` cannot be `MAX`, which
         // means the addition cannot overflow and the result cannot be zero.
@@ -579,3 +586,34 @@ spec_int_ranges_r!(u8 u16 u32 usize);
 spec_int_ranges!(u8 u16 usize);
 #[cfg(target_pointer_width = "16")]
 spec_int_ranges_r!(u8 u16 usize);
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(StepBy::original_step)]
+    fn proof_step_by_original_step() {
+        // Create a StepBy with a step_minus_one that satisfies the precondition
+        let step_minus_one = kani::any_where(|&x| x != usize::MAX);
+
+        // Create a dummy iterator for StepBy
+        struct DummyIter;
+
+        impl Iterator for DummyIter {
+            type Item = u8;
+            fn next(&mut self) -> Option<Self::Item> {
+                None
+            }
+        }
+
+        // Create a StepBy instance with the valid step_minus_one
+        let step_by = StepBy {
+            iter: DummyIter,
+            step_minus_one,
+            first_take: kani::any(),
+        };
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = step_by.original_step();
+    }
+}

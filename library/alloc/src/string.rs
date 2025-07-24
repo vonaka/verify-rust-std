@@ -42,6 +42,15 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::error::Error;
 use core::iter::FusedIterator;
 #[cfg(not(no_global_oom_handling))]
@@ -1407,6 +1416,7 @@ impl String {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     #[track_caller]
+    #[cfg_attr(kani, kani::modifies(self.vec.as_mut_ptr()))]
     pub fn push(&mut self, ch: char) {
         let len = self.len();
         let ch_len = ch.len_utf8();
@@ -1521,6 +1531,9 @@ impl String {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[track_caller]
     #[rustc_confusables("delete", "take")]
+    #[requires(self.is_char_boundary(idx))]
+    #[requires(idx < self.len())]
+    #[cfg_attr(kani, kani::modifies(self.vec.as_mut_ptr()))]
     pub fn remove(&mut self, idx: usize) -> char {
         let ch = match self[idx..].chars().next() {
             Some(ch) => ch,

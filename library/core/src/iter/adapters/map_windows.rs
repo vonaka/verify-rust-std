@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::FusedIterator;
 use crate::mem::MaybeUninit;
 use crate::{fmt, ptr};
@@ -123,6 +129,8 @@ impl<T, const N: usize> Buffer<T, N> {
     }
 
     #[inline]
+    #[requires(self.start + N <= 2 * N)]
+    #[requires(can_dereference(self as *const _ as *const u8))]
     fn as_array_ref(&self) -> &[T; N] {
         debug_assert!(self.start + N <= 2 * N);
 
@@ -131,6 +139,9 @@ impl<T, const N: usize> Buffer<T, N> {
     }
 
     #[inline]
+    #[requires(self.start + N <= 2 * N)]
+    #[requires(can_dereference(self as *const _ as *const u8))]
+    #[cfg_attr(kani, kani::modifies(self))]
     fn as_uninit_array_mut(&mut self) -> &mut MaybeUninit<[T; N]> {
         debug_assert!(self.start + N <= 2 * N);
 
@@ -142,6 +153,9 @@ impl<T, const N: usize> Buffer<T, N> {
     ///
     /// All the elements will be shifted to the front end when pushing reaches
     /// the back end.
+    #[requires(self.start + N <= 2 * N)]
+    #[requires(self.start < 2 * N)]
+    #[cfg_attr(kani, kani::modifies(self))]
     fn push(&mut self, next: T) {
         let buffer_mut_ptr = self.buffer_mut_ptr();
         debug_assert!(self.start + N <= 2 * N);
@@ -287,5 +301,134 @@ where
 {
     fn clone(&self) -> Self {
         Self { f: self.f.clone(), inner: self.inner.clone() }
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Buffer::as_array_ref)]
+    fn proof_for_buffer_as_array_ref() {
+        // Define a small constant for N
+        const N: usize = 3;
+
+        // Create a type for our buffer elements
+        type T = u32;
+
+        // Create a buffer with valid state
+        let buffer = {
+            // Create the buffer data - two arrays of MaybeUninit<T>
+            let mut buffer_data = [
+                [
+                    MaybeUninit::<T>::new(1),
+                    MaybeUninit::<T>::new(2),
+                    MaybeUninit::<T>::new(3),
+                ],
+                [
+                    MaybeUninit::<T>::uninit(),
+                    MaybeUninit::<T>::uninit(),
+                    MaybeUninit::<T>::uninit(),
+                ],
+            ];
+
+            // Choose a valid start index that satisfies our precondition
+            // start + N <= 2 * N, which means start <= N
+            let start = kani::any::<usize>() % (N + 1);
+
+            // Create the buffer
+            Buffer {
+                buffer: buffer_data,
+                start,
+            }
+        };
+
+        // Call the function
+        let _ = buffer.as_array_ref();
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Buffer::as_uninit_array_mut)]
+    fn proof_for_buffer_as_uninit_array_mut() {
+        // Define a small constant for N
+        const N: usize = 3;
+
+        // Create a type for our buffer elements
+        type T = u32;
+
+        // Create a buffer with valid state
+        let mut buffer = {
+            // Create the buffer data - two arrays of MaybeUninit<T>
+            let mut buffer_data = [
+                [
+                    MaybeUninit::<T>::new(1),
+                    MaybeUninit::<T>::new(2),
+                    MaybeUninit::<T>::new(3),
+                ],
+                [
+                    MaybeUninit::<T>::uninit(),
+                    MaybeUninit::<T>::uninit(),
+                    MaybeUninit::<T>::uninit(),
+                ],
+            ];
+
+            // Choose a valid start index that satisfies our precondition
+            // start + N <= 2 * N, which means start <= N
+            let start = kani::any::<usize>() % (N + 1);
+
+            // Create the buffer
+            Buffer {
+                buffer: buffer_data,
+                start,
+            }
+        };
+
+        // Call the function
+        let _ = buffer.as_uninit_array_mut();
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Buffer::push)]
+    fn proof_for_buffer_push() {
+        // Define a small constant for N
+        const N: usize = 3;
+
+        // Create a type for our buffer elements
+        type T = u32;
+
+        // Create a buffer with valid state
+        let mut buffer = {
+            // Create the buffer data - two arrays of MaybeUninit<T>
+            let mut buffer_data = [
+                [
+                    MaybeUninit::<T>::new(1),
+                    MaybeUninit::<T>::new(2),
+                    MaybeUninit::<T>::new(3),
+                ],
+                [
+                    MaybeUninit::<T>::uninit(),
+                    MaybeUninit::<T>::uninit(),
+                    MaybeUninit::<T>::uninit(),
+                ],
+            ];
+
+            // Choose a valid start index that satisfies our preconditions:
+            // 1. start + N <= 2 * N (which means start <= N)
+            // 2. start < 2 * N
+            // The stricter condition is start <= N
+            let start = kani::any::<usize>() % (N + 1);
+
+            // Create the buffer
+            Buffer {
+                buffer: buffer_data,
+                start,
+            }
+        };
+
+        // Create a new element to push
+        let next_element = kani::any::<T>();
+
+        // Call the function
+        buffer.push(next_element);
     }
 }

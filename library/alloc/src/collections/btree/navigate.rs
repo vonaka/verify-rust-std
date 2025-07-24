@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::borrow::Borrow;
 use core::ops::RangeBounds;
 use core::{hint, ptr};
@@ -190,6 +199,7 @@ impl<K, V> LazyLeafRange<marker::Dying, K, V> {
     }
 
     #[inline]
+    #[requires(self.front.is_some())]
     pub(super) unsafe fn deallocating_next_unchecked<A: Allocator + Clone>(
         &mut self,
         alloc: A,
@@ -200,6 +210,7 @@ impl<K, V> LazyLeafRange<marker::Dying, K, V> {
     }
 
     #[inline]
+    #[requires(self.back.is_some())]
     pub(super) unsafe fn deallocating_next_back_unchecked<A: Allocator + Clone>(
         &mut self,
         alloc: A,
@@ -218,6 +229,7 @@ impl<K, V> LazyLeafRange<marker::Dying, K, V> {
 }
 
 impl<BorrowType: marker::BorrowType, K, V> LazyLeafRange<BorrowType, K, V> {
+    #[requires(self.front.is_some())]
     fn init_front(
         &mut self,
     ) -> Option<&mut Handle<NodeRef<BorrowType, K, V, marker::Leaf>, marker::Edge>> {
@@ -232,6 +244,7 @@ impl<BorrowType: marker::BorrowType, K, V> LazyLeafRange<BorrowType, K, V> {
         }
     }
 
+    #[requires(self.back.is_some())]
     fn init_back(
         &mut self,
     ) -> Option<&mut Handle<NodeRef<BorrowType, K, V, marker::Leaf>, marker::Edge>> {

@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::{self, MaybeUninit};
 use crate::ptr;
 
@@ -123,6 +129,43 @@ impl<'a, T> Drop for InitializingSlice<'a, T> {
         //   so each of the pointed-to elements is initialized and may be dropped.
         unsafe {
             ptr::drop_in_place::<[T]>(initialized_slice);
+        }
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(<i32 as CopySpec>::clone_one)]
+    fn verify_clone_one() {
+        // Create a source value
+        let src: i32 = kani::any();
+
+        // Create a destination pointer
+        let mut dst_value: i32 = 0;
+        let dst: *mut i32 = &mut dst_value;
+
+        // Call the function under verification
+        unsafe {
+            <i32 as CopySpec>::clone_one(&src, dst);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(<i32 as CopySpec>::clone_slice)]
+    fn verify_clone_slice() {
+        // Create a small source slice
+        let src: [i32; 3] = [kani::any(), kani::any(), kani::any()];
+
+        // Create a destination slice of the same length
+        let mut dst_values: [i32; 3] = [0, 0, 0];
+
+        // Get a raw pointer to the destination
+        let dst: *mut [i32] = &mut dst_values;
+
+        // Call the function under verification
+        unsafe {
+            <i32 as CopySpec>::clone_slice(&src, dst);
         }
     }
 }

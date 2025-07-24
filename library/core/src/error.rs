@@ -1,6 +1,12 @@
 #![doc = include_str!("error.md")]
 #![stable(feature = "error_in_core", since = "1.81.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::any::TypeId;
 use crate::fmt::{self, Debug, Display, Formatter};
 
@@ -235,6 +241,7 @@ impl dyn Error + 'static {
     /// `None` if it isn't.
     #[stable(feature = "error_downcast", since = "1.3.0")]
     #[inline]
+    #[requires(self.is::<T>())]
     pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
         if self.is::<T>() {
             // SAFETY: `is` ensures this type cast is correct
@@ -248,6 +255,7 @@ impl dyn Error + 'static {
     /// `None` if it isn't.
     #[stable(feature = "error_downcast", since = "1.3.0")]
     #[inline]
+    #[requires(self.is::<T>())]
     pub fn downcast_mut<T: Error + 'static>(&mut self) -> Option<&mut T> {
         if self.is::<T>() {
             // SAFETY: `is` ensures this type cast is correct
@@ -1101,3 +1109,76 @@ impl Error for crate::ffi::FromBytesUntilNulError {}
 
 #[stable(feature = "get_many_mut", since = "1.86.0")]
 impl Error for crate::slice::GetDisjointMutError {}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(<dyn Error + 'static>::downcast_ref)]
+    fn proof_for_contract_downcast_ref() {
+        // For this proof, we need to create a concrete Error type that we can downcast to
+        struct SimpleError {
+            message: &'static str,
+        }
+
+        impl std::fmt::Debug for SimpleError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.message)
+            }
+        }
+
+        impl std::fmt::Display for SimpleError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.message)
+            }
+        }
+
+        impl Error for SimpleError {}
+
+        // Create a concrete error instance
+        let error = SimpleError {
+            message: "test error",
+        };
+
+        // Convert to a trait object
+        let error_ref: &(dyn Error + 'static) = &error;
+
+        // The precondition is satisfied because we're downcasting to the original type
+        // This should satisfy self.is::<SimpleError>()
+        let _ = error_ref.downcast_ref::<SimpleError>();
+    }
+
+    #[kani::proof_for_contract(<dyn Error + 'static>::downcast_mut)]
+    fn proof_for_contract_downcast_mut() {
+        // For this proof, we need to create a concrete Error type that we can downcast to
+        struct SimpleError {
+            message: &'static str,
+            code: i32,
+        }
+
+        impl std::fmt::Debug for SimpleError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Error {}: {}", self.code, self.message)
+            }
+        }
+
+        impl std::fmt::Display for SimpleError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Error {}: {}", self.code, self.message)
+            }
+        }
+
+        impl Error for SimpleError {}
+
+        // Create a concrete error instance
+        let mut error = SimpleError {
+            message: "test error",
+            code: kani::any::<i32>(),
+        };
+
+        // Convert to a mutable trait object
+        let error_mut: &mut (dyn Error + 'static) = &mut error;
+
+        // The precondition is satisfied because we're downcasting to the original type
+        // This should satisfy self.is::<SimpleError>()
+        let _ = error_mut.downcast_mut::<SimpleError>();
+    }
+}

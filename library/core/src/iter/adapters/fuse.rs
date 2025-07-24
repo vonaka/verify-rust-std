@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::intrinsics;
 use crate::iter::adapters::SourceIter;
 use crate::iter::adapters::zip::try_get_unchecked;
@@ -471,4 +477,60 @@ fn and_then_or_clear<T, U>(opt: &mut Option<T>, f: impl FnOnce(&mut T) -> Option
         *opt = None;
     }
     x
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Fuse::as_inner)]
+    fn proof_for_fuse_as_inner() {
+        use core::iter::SourceIter;
+
+        // Create a simple iterator type that implements SourceIter and TrustedFused
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+        }
+
+        // Implement TrustedFused for SimpleIter
+        unsafe impl TrustedFused for SimpleIter {}
+
+        // Implement SourceIter for SimpleIter
+        unsafe impl SourceIter for SimpleIter {
+            type Source = [u32; 5];
+
+            unsafe fn as_inner(&mut self) -> &mut Self::Source {
+                &mut self.data
+            }
+        }
+
+        // Create a SimpleIter instance
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: 0,
+        };
+
+        // Create a Fuse with our SimpleIter
+        let mut fuse = Fuse { iter: Some(iter) };
+
+        // Call the function
+        unsafe {
+            let _ = fuse.as_inner();
+        }
+    }
 }

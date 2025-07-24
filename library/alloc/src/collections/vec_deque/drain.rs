@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::mem::{self, SizedTypeProperties};
@@ -53,6 +62,7 @@ impl<'a, T, A: Allocator> Drain<'a, T, A> {
 
     // Only returns pointers to the slices, as that's all we need
     // to drop them. May only be called if `self.remaining != 0`.
+    #[requires(self.remaining != 0)]
     unsafe fn as_slices(&self) -> (*mut [T], *mut [T]) {
         unsafe {
             let deque = self.deque.as_ref();
@@ -272,3 +282,27 @@ impl<T, A: Allocator> ExactSizeIterator for Drain<'_, T, A> {}
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T, A: Allocator> FusedIterator for Drain<'_, T, A> {}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(as_slices)]
+    unsafe fn proof_for_as_slices() {
+        // Create a VecDeque with a small number of elements
+        let mut deque = VecDeque::<i32, Global>::new();
+
+        // Add some elements to the deque
+        deque.push_back(1);
+        deque.push_back(2);
+        deque.push_back(3);
+        deque.push_back(4);
+        deque.push_back(5);
+
+        // Create a drain with non-zero remaining elements
+        let mut drain = deque.drain(1..4);
+
+        // Call the function with valid parameters
+        unsafe {
+            let (_front, _back) = drain.as_slices();
+        }
+    }
+}

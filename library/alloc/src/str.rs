@@ -7,6 +7,15 @@
 // It's cleaner to just turn off the unused_imports warning than to fix them.
 #![allow(unused_imports)]
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::borrow::{Borrow, BorrowMut};
 use core::iter::FusedIterator;
 use core::mem::MaybeUninit;
@@ -127,6 +136,7 @@ macro_rules! copy_slice_and_advance {
 // [T] and str both impl AsRef<[T]> for some T
 // => s.borrow().as_ref() and we always have slices
 #[cfg(not(no_global_oom_handling))]
+#[requires(slice.iter().map(|s| s.borrow().as_ref().len()).try_fold(sep.len() * slice.len(), usize::checked_add).is_some())]
 fn join_generic_copy<B, T, S>(slice: &[S], sep: &[T]) -> Vec<T>
 where
     T: Copy,
@@ -265,6 +275,7 @@ impl str {
                   without modifying the original"]
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
+    #[requires(self.len() > 0)]
     pub fn replace<P: Pattern>(&self, from: P, to: &str) -> String {
         // Fast path for replacing a single ASCII character with another.
         if let Some(from_byte) = match from.as_utf8_pattern() {
@@ -320,6 +331,8 @@ impl str {
     #[must_use = "this returns the replaced string as a new allocation, \
                   without modifying the original"]
     #[stable(feature = "str_replacen", since = "1.16.0")]
+    #[requires(self.len() > 0)]
+    #[requires(count > 0)]
     pub fn replacen<P: Pattern>(&self, pat: P, to: &str, count: usize) -> String {
         // Hope to reduce the times of re-allocation
         let mut result = String::with_capacity(32);
@@ -632,6 +645,7 @@ pub unsafe fn from_boxed_utf8_unchecked(v: Box<[u8]>) -> Box<str> {
 #[doc(hidden)]
 #[inline]
 #[cfg(not(no_global_oom_handling))]
+#[requires(s.as_bytes().len() >= 16 || s.as_bytes().len() > 0)]
 pub fn convert_while_ascii(s: &str, convert: fn(&u8) -> u8) -> (String, &str) {
     // Process the input in chunks of 16 bytes to enable auto-vectorization.
     // Previously the chunk size depended on the size of `usize`,

@@ -132,3 +132,4 @@ impl Error for DecodeUtf16Error {
         "unpaired surrogate found"
     }
 }
+}

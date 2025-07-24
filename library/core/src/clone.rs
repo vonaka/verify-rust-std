@@ -598,3 +598,8 @@ mod impls {
     #[stable(feature = "rust1", since = "1.0.0")]
     impl<T: PointeeSized> !Clone for &mut T {}
 }
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    // No harnesses needed as no contracts were generated for the clone.rs file
+}

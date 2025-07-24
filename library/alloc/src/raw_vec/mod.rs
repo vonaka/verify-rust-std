@@ -4,6 +4,15 @@
 // Note: This module is also included in the alloctests crate using #[path] to
 // run the tests. See the comment there for an explanation why this is the case.
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::marker::PhantomData;
 use core::mem::{ManuallyDrop, MaybeUninit, SizedTypeProperties};
 use core::ptr::{self, Alignment, NonNull, Unique};
@@ -44,6 +53,7 @@ const ZERO_CAP: Cap = unsafe { Cap::new_unchecked(0) };
 /// `Cap(cap)`, except if `T` is a ZST then `Cap::ZERO`.
 ///
 /// # Safety: cap must be <= `isize::MAX`.
+#[requires(cap <= isize::MAX as usize)]
 unsafe fn new_cap<T>(cap: usize) -> Cap {
     if T::IS_ZST { ZERO_CAP } else { unsafe { Cap::new_unchecked(cap) } }
 }
@@ -226,6 +236,7 @@ impl<T, A: Allocator> RawVec<T, A> {
     ///
     /// Note, that the requested capacity and `self.capacity()` could differ, as
     /// an allocator could overallocate and return a greater memory block than requested.
+    #[requires(len <= self.capacity())]
     pub(crate) unsafe fn into_box(self, len: usize) -> Box<[MaybeUninit<T>], A> {
         // Sanity-check one half of the safety requirement (we cannot check the other half).
         debug_assert!(
@@ -819,4 +830,57 @@ fn alloc_guard(alloc_size: usize) -> Result<(), TryReserveError> {
 #[inline]
 fn layout_array(cap: usize, elem_layout: Layout) -> Result<Layout, TryReserveError> {
     elem_layout.repeat(cap).map(|(layout, _pad)| layout).map_err(|_| CapacityOverflow.into())
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[kani::proof_for_contract(new_cap)]
+    unsafe fn proof_for_new_cap() {
+        // Create a concrete type for T
+        struct TestType {
+            value: u32,
+        }
+
+        // Generate a capacity value
+        let cap = kani::any::<usize>();
+
+        // Ensure the capacity is within bounds (cap <= isize::MAX as usize)
+        if cap > isize::MAX as usize {
+            return;
+        }
+
+        // Call the function with valid parameters
+        unsafe {
+            let _result = new_cap::<TestType>(cap);
+        }
+    }
+
+    #[kani::proof_for_contract(into_box)]
+    unsafe fn proof_for_into_box() {
+        // Create a concrete type for T
+        struct TestType {
+            value: u32,
+        }
+
+        // Create a RawVec with a small capacity
+        let capacity = kani::any::<usize>();
+        if capacity > 10 {
+            return;
+        }
+
+        // Create a RawVec with the chosen capacity
+        let raw_vec = RawVec::<TestType>::with_capacity(capacity);
+
+        // Generate a length that is less than or equal to the capacity
+        let len = kani::any::<usize>();
+        if len > capacity {
+            return;
+        }
+
+        // Call the function with valid parameters
+        unsafe {
+            let _result = raw_vec.into_box(len);
+        }
+    }
 }

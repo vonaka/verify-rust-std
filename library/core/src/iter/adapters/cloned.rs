@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use core::num::NonZero;
 
 use crate::iter::adapters::zip::try_get_unchecked;
@@ -61,6 +67,9 @@ where
         self.it.map(T::clone).fold(init, f)
     }
 
+    #[requires(can_dereference(&mut self.it as *mut _))]
+    #[requires(idx < self.len())]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> T
     where
         Self: TrustedRandomAccessNoCoerce,
@@ -147,6 +156,9 @@ where
     I: UncheckedIterator<Item = &'a T>,
     T: Clone,
 {
+    #[requires(can_dereference(&mut self.it as *mut _))]
+    #[requires(!self.is_empty())]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn next_unchecked(&mut self) -> T {
         // SAFETY: `Cloned` is 1:1 with the inner iterator, so if the caller promised
         // that there's an element left, the inner iterator has one too.

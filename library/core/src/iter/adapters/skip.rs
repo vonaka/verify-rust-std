@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::intrinsics::unlikely;
 use crate::iter::adapters::SourceIter;
 use crate::iter::adapters::zip::try_get_unchecked;
@@ -158,6 +164,7 @@ where
     }
 
     #[doc(hidden)]
+    #[requires(idx < self.len())]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item
     where
         Self: TrustedRandomAccessNoCoerce,
@@ -287,3 +294,74 @@ where
 // I: TrustedLen would not.
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<I> TrustedLen for Skip<I> where I: Iterator + TrustedRandomAccess {}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Skip::__iterator_get_unchecked)]
+    fn proof_skip_iterator_get_unchecked() {
+        // Create a Skip iterator with arbitrary values
+        let mut iter = Skip {
+            iter: NonDeterministicIterator::new(),
+            n: kani::any_where(|&n| n < 10),
+        };
+
+        // Choose an index that satisfies the precondition
+        let len = iter.len();
+        if len == 0 {
+            return; // Nothing to verify if length is 0
+        }
+
+        let idx = kani::any_where(|&idx| idx < len);
+
+        // Call the function - if preconditions are met, this should be safe
+        unsafe {
+            let _ = iter.__iterator_get_unchecked(idx);
+        }
+    }
+
+    // A simple non-deterministic iterator implementation for testing
+    struct NonDeterministicIterator {
+        len: usize,
+    }
+
+    impl NonDeterministicIterator {
+        fn new() -> Self {
+            Self {
+                len: kani::any_where(|&len| len < 10),
+            }
+        }
+    }
+
+    impl Iterator for NonDeterministicIterator {
+        type Item = u32;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.len > 0 {
+                self.len -= 1;
+                Some(kani::any())
+            } else {
+                None
+            }
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (self.len, Some(self.len))
+        }
+    }
+
+    impl ExactSizeIterator for NonDeterministicIterator {
+        fn len(&self) -> usize {
+            self.len
+        }
+    }
+
+    impl TrustedRandomAccessNoCoerce for NonDeterministicIterator {
+        const MAY_HAVE_SIDE_EFFECT: bool = false;
+
+        unsafe fn __iterator_get_unchecked(&mut self, _idx: usize) -> Self::Item {
+            kani::any()
+        }
+    }
+}

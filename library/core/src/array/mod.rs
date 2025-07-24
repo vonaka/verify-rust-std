@@ -4,6 +4,12 @@
 
 #![stable(feature = "core_array", since = "1.35.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::borrow::{Borrow, BorrowMut};
 use crate::cmp::Ordering;
 use crate::convert::Infallible;
@@ -831,11 +837,13 @@ impl<T, const N: usize> [T; N] {
 /// By depending on `TrustedLen`, however, we can do that check up-front (where
 /// it easily optimizes away) so it doesn't impact the loop that fills the array.
 #[inline]
+#[requires(iter.size_hint().0 >= N)]
 fn from_trusted_iterator<T, const N: usize>(iter: impl UncheckedIterator<Item = T>) -> [T; N] {
     try_from_trusted_iterator(iter.map(NeverShortCircuit)).0
 }
 
 #[inline]
+#[requires(iter.size_hint().0 >= N)]
 fn try_from_trusted_iterator<T, R, const N: usize>(
     iter: impl UncheckedIterator<Item = R>,
 ) -> ChangeOutputType<R, [T; N]>
@@ -914,6 +922,8 @@ impl<T> Guard<'_, T> {
     ///
     /// No more than N elements must be initialized.
     #[inline]
+    #[requires(self.initialized < self.array_mut.len())]
+    #[cfg_attr(kani, kani::modifies(self.array_mut))]
     pub(crate) unsafe fn push_unchecked(&mut self, item: T) {
         // SAFETY: If `initialized` was correct before and the caller does not
         // invoke this method more than N times then writes will be in-bounds

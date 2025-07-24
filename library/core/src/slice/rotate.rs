@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::{MaybeUninit, SizedTypeProperties};
 use crate::{cmp, ptr};
 
@@ -11,6 +17,7 @@ type BufType = [usize; 32];
 ///
 /// The specified range must be valid for reading and writing.
 #[inline]
+#[requires(T::IS_ZST || (left == 0) || (right == 0) || (can_dereference(unsafe { mid.sub(left) }) && can_write(unsafe { mid.sub(left) }) && can_dereference(unsafe { mid.add(right.saturating_sub(1)) }) && can_write(unsafe { mid.add(right.saturating_sub(1)) })))]
 pub(super) unsafe fn ptr_rotate<T>(left: usize, mid: *mut T, right: usize) {
     if T::IS_ZST {
         return;
@@ -45,6 +52,7 @@ pub(super) unsafe fn ptr_rotate<T>(left: usize, mid: *mut T, right: usize) {
 ///
 /// The specified range must be valid for reading and writing.
 #[inline]
+#[requires(T::IS_ZST || (left == 0) || (right == 0) || (can_dereference(unsafe { mid.sub(left) }) && can_write(unsafe { mid.sub(left) }) && can_dereference(unsafe { mid.add(right.saturating_sub(1)) }) && can_write(unsafe { mid.add(right.saturating_sub(1)) })))]
 unsafe fn ptr_rotate_memmove<T>(left: usize, mid: *mut T, right: usize) {
     // The `[T; 0]` here is to ensure this is appropriately aligned for T
     let mut rawarray = MaybeUninit::<(BufType, [T; 0])>::uninit();
@@ -117,6 +125,7 @@ unsafe fn ptr_rotate_memmove<T>(left: usize, mid: *mut T, right: usize) {
 ///
 /// The specified range must be valid for reading and writing.
 #[inline]
+#[requires(T::IS_ZST || (left == 0) || (right == 0) || (can_dereference(unsafe { mid.sub(left) }) && can_write(unsafe { mid.sub(left) }) && can_dereference(unsafe { mid.add(right.saturating_sub(1)) }) && can_write(unsafe { mid.add(right.saturating_sub(1)) })))]
 unsafe fn ptr_rotate_gcd<T>(left: usize, mid: *mut T, right: usize) {
     // Algorithm 2
     // Microbenchmarks indicate that the average performance for random shifts is better all
@@ -222,6 +231,7 @@ unsafe fn ptr_rotate_gcd<T>(left: usize, mid: *mut T, right: usize) {
 ///
 /// The specified range must be valid for reading and writing.
 #[inline]
+#[requires(T::IS_ZST || (left == 0) || (right == 0) || (can_dereference(unsafe { mid.sub(left) }) && can_write(unsafe { mid.sub(left) }) && can_dereference(unsafe { mid.add(right.saturating_sub(1)) }) && can_write(unsafe { mid.add(right.saturating_sub(1)) })))]
 unsafe fn ptr_rotate_swap<T>(mut left: usize, mut mid: *mut T, mut right: usize) {
     loop {
         if left >= right {

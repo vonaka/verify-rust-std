@@ -4,6 +4,12 @@
 //!
 //! Hints may be compile time or runtime.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::MaybeUninit;
 use crate::{intrinsics, ub_checks};
 
@@ -198,6 +204,7 @@ pub const unsafe fn unreachable_unchecked() -> ! {
 #[doc(alias = "assume")]
 #[stable(feature = "hint_assert_unchecked", since = "1.81.0")]
 #[rustc_const_stable(feature = "hint_assert_unchecked", since = "1.81.0")]
+#[requires(cond)]
 pub const unsafe fn assert_unchecked(cond: bool) {
     // SAFETY: The caller promised `cond` is true.
     unsafe {
@@ -795,5 +802,22 @@ pub fn select_unpredictable<T>(condition: bool, true_val: T, false_val: T) -> T 
         crate::intrinsics::select_unpredictable(!condition, &mut true_val, &mut false_val)
             .assume_init_drop();
         crate::intrinsics::select_unpredictable(condition, true_val, false_val).assume_init()
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[kani::proof_for_contract(assert_unchecked)]
+    fn proof_for_contract_assert_unchecked() {
+        // We need to satisfy the precondition that `cond` is true
+        // Since we're calling an unsafe function that requires this condition,
+        // we'll explicitly set it to true rather than using kani::any()
+        let cond = true;
+
+        // Call the function with the condition that satisfies the precondition
+        unsafe {
+            assert_unchecked(cond);
+        }
     }
 }

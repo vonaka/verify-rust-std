@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::adapters::SourceIter;
 use crate::iter::{FusedIterator, InPlaceIterable, TrustedFused};
 use crate::mem::{ManuallyDrop, MaybeUninit};
@@ -210,4 +216,69 @@ where
 unsafe impl<I: InPlaceIterable, F> InPlaceIterable for FilterMap<I, F> {
     const EXPAND_BY: Option<NonZero<usize>> = I::EXPAND_BY;
     const MERGE_BY: Option<NonZero<usize>> = I::MERGE_BY;
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(FilterMap::as_inner)]
+    fn proof_for_filter_map_as_inner() {
+        use core::iter::SourceIter;
+
+        // Create a simple iterator type that implements SourceIter
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+        }
+
+        // Implement SourceIter for SimpleIter
+        unsafe impl SourceIter for SimpleIter {
+            type Source = [u32; 5];
+
+            unsafe fn as_inner(&mut self) -> &mut Self::Source {
+                &mut self.data
+            }
+        }
+
+        // Create a simple filter_map function
+        fn filter_even_and_double(x: u32) -> Option<u64> {
+            if x % 2 == 0 {
+                Some(x as u64 * 2)
+            } else {
+                None
+            }
+        }
+
+        // Create a SimpleIter instance
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: 0,
+        };
+
+        // Create a FilterMap with our SimpleIter
+        let mut filter_map = FilterMap {
+            iter,
+            f: filter_even_and_double,
+        };
+
+        // Call the function
+        unsafe {
+            let _ = filter_map.as_inner();
+        }
+    }
 }

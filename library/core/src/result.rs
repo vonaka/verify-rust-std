@@ -533,6 +533,12 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::{self, FusedIterator, TrustedLen};
 use crate::ops::{self, ControlFlow, Deref, DerefMut};
 use crate::{convert, fmt, hint};
@@ -1545,6 +1551,7 @@ impl<T, E> Result<T, E> {
     #[inline]
     #[track_caller]
     #[stable(feature = "option_result_unwrap_unchecked", since = "1.58.0")]
+    #[requires(matches!(self, Ok(_)))]
     pub unsafe fn unwrap_unchecked(self) -> T {
         match self {
             Ok(t) => t,
@@ -1576,6 +1583,7 @@ impl<T, E> Result<T, E> {
     #[inline]
     #[track_caller]
     #[stable(feature = "option_result_unwrap_unchecked", since = "1.58.0")]
+    #[requires(matches!(self, Err(_)))]
     pub unsafe fn unwrap_err_unchecked(self) -> E {
         match self {
             // SAFETY: the safety contract must be upheld by the caller.
@@ -2092,4 +2100,26 @@ impl<T, E, F: From<E>> ops::FromResidual<ops::Yeet<E>> for Result<T, F> {
 #[unstable(feature = "try_trait_v2_residual", issue = "91285")]
 impl<T, E> ops::Residual<T> for Result<convert::Infallible, E> {
     type TryType = Result<T, E>;
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[kani::proof_for_contract(Result::unwrap_unchecked)]
+    fn proof_unwrap_unchecked() {
+        // Create a Result<i32, i32> in the Ok variant
+        let result: Result<i32, i32> = Ok(kani::any::<i32>());
+
+        // Call the function with the Ok variant
+        unsafe { result.unwrap_unchecked() };
+    }
+
+    #[kani::proof_for_contract(Result::unwrap_err_unchecked)]
+    fn proof_unwrap_err_unchecked() {
+        // Create a Result<i32, i32> in the Err variant
+        let result: Result<i32, i32> = Err(kani::any::<i32>());
+
+        // Call the function with the Err variant
+        unsafe { result.unwrap_err_unchecked() };
+    }
 }

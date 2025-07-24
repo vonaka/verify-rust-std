@@ -86,6 +86,12 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::{fmt, hash, intrinsics};
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -291,6 +297,7 @@ impl dyn Any {
     /// with the incorrect type is *undefined behavior*.
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
     #[inline]
+    #[requires(self.is::<T>())]
     pub unsafe fn downcast_ref_unchecked<T: Any>(&self) -> &T {
         debug_assert!(self.is::<T>());
         // SAFETY: caller guarantees that T is the correct type
@@ -321,6 +328,8 @@ impl dyn Any {
     /// with the incorrect type is *undefined behavior*.
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
     #[inline]
+    #[requires(self.is::<T>())]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub unsafe fn downcast_mut_unchecked<T: Any>(&mut self) -> &mut T {
         debug_assert!(self.is::<T>());
         // SAFETY: caller guarantees that T is the correct type
@@ -427,6 +436,7 @@ impl dyn Any + Send {
     /// with the incorrect type is *undefined behavior*.
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
     #[inline]
+    #[requires(self.is::<T>())]
     pub unsafe fn downcast_ref_unchecked<T: Any>(&self) -> &T {
         // SAFETY: guaranteed by caller
         unsafe { <dyn Any>::downcast_ref_unchecked::<T>(self) }
@@ -456,6 +466,8 @@ impl dyn Any + Send {
     /// with the incorrect type is *undefined behavior*.
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
     #[inline]
+    #[requires(self.is::<T>())]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub unsafe fn downcast_mut_unchecked<T: Any>(&mut self) -> &mut T {
         // SAFETY: guaranteed by caller
         unsafe { <dyn Any>::downcast_mut_unchecked::<T>(self) }
@@ -560,6 +572,7 @@ impl dyn Any + Send + Sync {
     /// with the incorrect type is *undefined behavior*.
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
     #[inline]
+    #[requires(self.is::<T>())]
     pub unsafe fn downcast_ref_unchecked<T: Any>(&self) -> &T {
         // SAFETY: guaranteed by caller
         unsafe { <dyn Any>::downcast_ref_unchecked::<T>(self) }
@@ -588,6 +601,8 @@ impl dyn Any + Send + Sync {
     /// with the incorrect type is *undefined behavior*.
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
     #[inline]
+    #[requires(self.is::<T>())]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub unsafe fn downcast_mut_unchecked<T: Any>(&mut self) -> &mut T {
         // SAFETY: guaranteed by caller
         unsafe { <dyn Any>::downcast_mut_unchecked::<T>(self) }

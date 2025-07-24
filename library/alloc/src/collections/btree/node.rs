@@ -31,6 +31,15 @@
 //   since leaf edges are empty and need no data representation. In an internal node,
 //   an edge both identifies a position and contains a pointer to a child node.
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::marker::PhantomData;
 use core::mem::{self, MaybeUninit};
 use core::ptr::{self, NonNull};
@@ -231,6 +240,7 @@ impl<K, V> NodeRef<marker::Owned, K, V, marker::Internal> {
 
     /// # Safety
     /// `height` must not be zero.
+    #[requires(height > 0)]
     unsafe fn from_new_internal<A: Allocator + Clone>(
         internal: Box<InternalNode<K, V>, A>,
         height: usize,
@@ -518,6 +528,7 @@ impl<'a, K: 'a, V: 'a> NodeRef<marker::Mut<'a>, K, V, marker::Internal> {
 impl<'a, K, V, Type> NodeRef<marker::ValMut<'a>, K, V, Type> {
     /// # Safety
     /// - The node has more than `idx` initialized elements.
+    #[requires(idx < self.len())]
     unsafe fn into_key_val_mut_at(mut self, idx: usize) -> (&'a K, &'a mut V) {
         // We only create a reference to the one element we are interested in,
         // to avoid aliasing with outstanding references to other elements,
@@ -789,6 +800,7 @@ impl<Node, Type> Handle<Node, Type> {
 impl<BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, marker::KV> {
     /// Creates a new handle to a key-value pair in `node`.
     /// Unsafe because the caller must ensure that `idx < node.len()`.
+    #[requires(idx < node.len())]
     pub(super) unsafe fn new_kv(node: NodeRef<BorrowType, K, V, NodeType>, idx: usize) -> Self {
         debug_assert!(idx < node.len());
 
@@ -865,6 +877,7 @@ impl<K, V, NodeType, HandleType> Handle<NodeRef<marker::DormantMut, K, V, NodeTy
 impl<BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, marker::Edge> {
     /// Creates a new handle to an edge in `node`.
     /// Unsafe because the caller must ensure that `idx <= node.len()`.
+    #[requires(idx <= node.len())]
     pub(super) unsafe fn new_edge(node: NodeRef<BorrowType, K, V, NodeType>, idx: usize) -> Self {
         debug_assert!(idx <= node.len());
 
@@ -917,6 +930,7 @@ impl<'a, K: 'a, V: 'a> Handle<NodeRef<marker::Mut<'a>, K, V, marker::Leaf>, mark
     /// Inserts a new key-value pair between the key-value pairs to the right and left of
     /// this edge. This method assumes that there is enough space in the node for the new
     /// pair to fit.
+    #[requires(self.node.len() < CAPACITY)]
     unsafe fn insert_fit(
         mut self,
         key: K,
@@ -1168,6 +1182,7 @@ impl<K, V, NodeType> Handle<NodeRef<marker::Dying, K, V, NodeType>, marker::KV> 
     /// Extracts the key and value that the KV handle refers to.
     /// # Safety
     /// The node that the handle refers to must not yet have been deallocated.
+    #[requires(self.idx < self.node.len())]
     pub(super) unsafe fn into_key_val(mut self) -> (K, V) {
         debug_assert!(self.idx < self.node.len());
         let leaf = self.node.as_leaf_dying();

@@ -4,6 +4,15 @@
 //
 // Based on https://github.com/voultapher/tiny-sort-rs.
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use alloc::alloc::{Layout, alloc, dealloc};
 use std::ptr;
 
@@ -48,6 +57,7 @@ fn stable_sort<T, F: FnMut(&T, &T) -> bool>(v: &mut [T], mut is_less: F) {
 ///
 /// SAFETY: The caller has to ensure that len is > 0 and that T is not a ZST.
 #[inline(never)]
+#[requires(v.len() > 0 && size_of::<T>() > 0)]
 unsafe fn mergesort_main<T, F: FnMut(&T, &T) -> bool>(v: &mut [T], is_less: &mut F) {
     // While it would be nice to have a merge implementation that only requires N / 2 auxiliary
     // memory. Doing so would make the merge implementation significantly more complex and
@@ -66,6 +76,9 @@ unsafe fn mergesort_main<T, F: FnMut(&T, &T) -> bool>(v: &mut [T], is_less: &mut
 ///
 /// Buffer as pointed to by `scratch` must have space for `v.len()` writes. And must not alias `v`.
 #[inline(always)]
+#[requires(v.len() > 0 && size_of::<T>() > 0)]
+#[requires(can_write_unaligned(scratch_ptr))]
+#[requires(!same_allocation(v.as_ptr(), scratch_ptr))]
 unsafe fn mergesort_core<T, F: FnMut(&T, &T) -> bool>(
     v: &mut [T],
     scratch_ptr: *mut T,
@@ -97,6 +110,8 @@ unsafe fn mergesort_core<T, F: FnMut(&T, &T) -> bool>(
 /// SAFETY: The caller must ensure that `scratch_ptr` is valid for `v.len()` writes. And that mid is
 /// in-bounds.
 #[inline(always)]
+#[requires(mid > 0 && mid < v.len())]
+#[requires(can_write_unaligned(scratch_ptr))]
 unsafe fn merge<T, F>(v: &mut [T], scratch_ptr: *mut T, is_less: &mut F, mid: usize)
 where
     F: FnMut(&T, &T) -> bool,
@@ -143,6 +158,7 @@ where
 }
 
 // SAFETY: The caller has to ensure that Option is Some, UB otherwise.
+#[requires(opt_val.is_some())]
 unsafe fn unwrap_unchecked<T>(opt_val: Option<T>) -> T {
     match opt_val {
         Some(val) => val,
@@ -165,6 +181,7 @@ struct BufGuard<T> {
 
 impl<T> BufGuard<T> {
     // SAFETY: The caller has to ensure that len is not 0 and that T is not a ZST.
+    #[requires(len > 0 && size_of::<T>() > 0)]
     unsafe fn new(len: usize) -> Self {
         debug_assert!(len > 0 && size_of::<T>() > 0);
 

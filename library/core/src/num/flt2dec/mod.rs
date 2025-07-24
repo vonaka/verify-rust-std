@@ -123,6 +123,12 @@ functions.
 )]
 
 pub use self::decoder::{DecodableFloat, Decoded, FullDecoded, decode};
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use super::fmt::{Formatted, Part};
 use crate::mem::MaybeUninit;
 
@@ -178,6 +184,10 @@ pub fn round_up(d: &mut [u8]) -> Option<u8> {
 /// it will be ignored and full digits will be printed. It is only used to print
 /// additional zeroes after rendered digits. Thus `frac_digits` of 0 means that
 /// it will only print given digits and nothing else.
+#[requires(!buf.is_empty())]
+#[requires(buf[0] > b'0')]
+#[requires(parts.len() >= 4)]
+#[cfg_attr(kani, kani::modifies(parts))]
 fn digits_to_dec_str<'a>(
     buf: &'a [u8],
     exp: i16,
@@ -256,6 +266,10 @@ fn digits_to_dec_str<'a>(
 /// it will be ignored and full digits will be printed. It is only used to print
 /// additional zeroes after rendered digits. Thus, `min_digits == 0` means that
 /// it will only print the given digits and nothing else.
+#[requires(!buf.is_empty())]
+#[requires(buf[0] > b'0')]
+#[requires(parts.len() >= 6)]
+#[cfg_attr(kani, kani::modifies(parts))]
 fn digits_to_exp_str<'a>(
     buf: &'a [u8],
     exp: i16,
@@ -345,6 +359,10 @@ fn determine_sign(sign: Sign, decoded: &FullDecoded, negative: bool) -> &'static
 /// The byte buffer should be at least `MAX_SIG_DIGITS` bytes long.
 /// There should be at least 4 parts available, due to the worst case like
 /// `[+][0.][0000][2][0000]` with `frac_digits = 10`.
+#[requires(parts.len() >= 4)]
+#[requires(buf.len() >= MAX_SIG_DIGITS)]
+#[cfg_attr(kani, kani::modifies(parts))]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn to_shortest_str<'a, T, F>(
     mut format_shortest: F,
     v: T,
@@ -419,6 +437,11 @@ where
 /// The byte buffer should be at least `MAX_SIG_DIGITS` bytes long.
 /// There should be at least 6 parts available, due to the worst case like
 /// `[+][1][.][2345][e][-][6]`.
+#[requires(parts.len() >= 6)]
+#[requires(buf.len() >= MAX_SIG_DIGITS)]
+#[requires(dec_bounds.0 <= dec_bounds.1)]
+#[cfg_attr(kani, kani::modifies(parts))]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn to_shortest_exp_str<'a, T, F>(
     mut format_shortest: F,
     v: T,
@@ -511,6 +534,11 @@ fn estimate_max_buf_len(exp: i16) -> usize {
 /// (The tipping point for `f64` is about 800, so 1000 bytes should be enough.)
 /// There should be at least 6 parts available, due to the worst case like
 /// `[+][1][.][2345][e][-][6]`.
+#[requires(parts.len() >= 6)]
+#[requires(ndigits > 0)]
+#[requires(buf.len() >= ndigits)]
+#[cfg_attr(kani, kani::modifies(parts))]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn to_exact_exp_str<'a, T, F>(
     mut format_exact: F,
     v: T,
@@ -587,6 +615,9 @@ where
 /// (The tipping point for `f64` is about 800, and 1000 bytes should be enough.)
 /// There should be at least 4 parts available, due to the worst case like
 /// `[+][0.][0000][2][0000]` with `frac_digits = 10`.
+#[requires(parts.len() >= 4)]
+#[cfg_attr(kani, kani::modifies(parts))]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn to_exact_fixed_str<'a, T, F>(
     mut format_exact: F,
     v: T,
@@ -668,5 +699,222 @@ where
                 Formatted { sign, parts: digits_to_dec_str(buf, exp, frac_digits, parts) }
             }
         }
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(digits_to_dec_str)]
+    fn proof_digits_to_dec_str() {
+        // Create a buffer with at least one digit and first digit non-zero
+        let buf_size = kani::any_where(|&size| size > 0 && size <= 10);
+        let mut buf = [0u8; 10];
+
+        // Set first digit to be non-zero (between '1' and '9')
+        buf[0] = kani::any_where(|&d| d > b'0' && d <= b'9');
+
+        // Fill the rest of the buffer with digits
+        for i in 1..buf_size {
+            buf[i] = kani::any_where(|&d| d >= b'0' && d <= b'9');
+        }
+
+        // Create a slice of the buffer with the appropriate size
+        let buf_slice = &buf[..buf_size];
+
+        // Create an exponent value
+        let exp = kani::any();
+
+        // Create a fractional digits value
+        let frac_digits = kani::any_where(|&fd| fd < 10);
+
+        // Create parts array with at least 4 elements
+        let mut parts = [MaybeUninit::<Part>::uninit(); 5];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = digits_to_dec_str(buf_slice, exp, frac_digits, &mut parts);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(digits_to_exp_str)]
+    fn proof_digits_to_exp_str() {
+        // Create a buffer with at least one digit and first digit non-zero
+        let buf_size = kani::any_where(|&size| size > 0 && size <= 10);
+        let mut buf = [0u8; 10];
+
+        // Set first digit to be non-zero (between '1' and '9')
+        buf[0] = kani::any_where(|&d| d > b'0' && d <= b'9');
+
+        // Fill the rest of the buffer with digits
+        for i in 1..buf_size {
+            buf[i] = kani::any_where(|&d| d >= b'0' && d <= b'9');
+        }
+
+        // Create a slice of the buffer with the appropriate size
+        let buf_slice = &buf[..buf_size];
+
+        // Create an exponent value
+        let exp = kani::any();
+
+        // Create a minimum number of digits value
+        let min_ndigits = kani::any_where(|&n| n < 10);
+
+        // Create a boolean for uppercase/lowercase
+        let upper = kani::any();
+
+        // Create parts array with at least 6 elements
+        let mut parts = [MaybeUninit::<Part>::uninit(); 7];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = digits_to_exp_str(buf_slice, exp, min_ndigits, upper, &mut parts);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(to_shortest_str)]
+    fn proof_to_shortest_str() {
+        // Create a mock format_shortest function
+        let format_shortest = |_decoded: &Decoded, buf: &mut [MaybeUninit<u8>]| {
+            // Initialize the first few elements of the buffer
+            let size = 3;
+            buf[0] = MaybeUninit::new(b'1'); // First digit must be non-zero
+            buf[1] = MaybeUninit::new(b'2');
+            buf[2] = MaybeUninit::new(b'3');
+
+            // Return a slice of the buffer and an exponent
+            (&[b'1', b'2', b'3'], 0i16)
+        };
+
+        // Create a test value (f32 is a DecodableFloat)
+        let v: f32 = kani::any();
+
+        // Create a sign
+        let sign = Sign::Minus; // Using a specific value for simplicity
+
+        // Create a fractional digits value
+        let frac_digits = kani::any_where(|&fd| fd < 10);
+
+        // Create a buffer with at least MAX_SIG_DIGITS elements
+        let mut buf = [MaybeUninit::<u8>::uninit(); MAX_SIG_DIGITS + 1];
+
+        // Create parts array with at least 4 elements
+        let mut parts = [MaybeUninit::<Part>::uninit(); 5];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = to_shortest_str(format_shortest, v, sign, frac_digits, &mut buf, &mut parts);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(to_shortest_exp_str)]
+    fn proof_to_shortest_exp_str() {
+        // Create a mock format_shortest function
+        let format_shortest = |_decoded: &Decoded, buf: &mut [MaybeUninit<u8>]| {
+            // Initialize the first few elements of the buffer
+            buf[0] = MaybeUninit::new(b'1'); // First digit must be non-zero
+            buf[1] = MaybeUninit::new(b'2');
+            buf[2] = MaybeUninit::new(b'3');
+
+            // Return a slice of the buffer and an exponent
+            (&[b'1', b'2', b'3'], 0i16)
+        };
+
+        // Create a test value (f32 is a DecodableFloat)
+        let v: f32 = kani::any();
+
+        // Create a sign
+        let sign = Sign::Minus; // Using a specific value for simplicity
+
+        // Create decimal bounds that satisfy dec_bounds.0 <= dec_bounds.1
+        let lo = kani::any_where(|&lo| lo >= -5 && lo <= 5);
+        let hi = kani::any_where(|&hi| hi >= lo && hi <= lo + 10);
+        let dec_bounds = (lo, hi);
+
+        // Create a boolean for uppercase/lowercase
+        let upper = kani::any();
+
+        // Create a buffer with at least MAX_SIG_DIGITS elements
+        let mut buf = [MaybeUninit::<u8>::uninit(); MAX_SIG_DIGITS + 1];
+
+        // Create parts array with at least 6 elements
+        let mut parts = [MaybeUninit::<Part>::uninit(); 7];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = to_shortest_exp_str(
+            format_shortest,
+            v,
+            sign,
+            dec_bounds,
+            upper,
+            &mut buf,
+            &mut parts,
+        );
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(to_exact_exp_str)]
+    fn proof_to_exact_exp_str() {
+        // Create a mock format_exact function
+        let format_exact = |_decoded: &Decoded, buf: &mut [MaybeUninit<u8>], _limit: i16| {
+            // Initialize the first few elements of the buffer
+            buf[0] = MaybeUninit::new(b'1'); // First digit must be non-zero
+            buf[1] = MaybeUninit::new(b'2');
+            buf[2] = MaybeUninit::new(b'3');
+
+            // Return a slice of the buffer and an exponent
+            (&[b'1', b'2', b'3'], 0i16)
+        };
+
+        // Create a test value (f32 is a DecodableFloat)
+        let v: f32 = kani::any();
+
+        // Create a sign
+        let sign = Sign::Minus; // Using a specific value for simplicity
+
+        // Create a number of digits value that's greater than 0
+        let ndigits = kani::any_where(|&n| n > 0 && n <= 10);
+
+        // Create a boolean for uppercase/lowercase
+        let upper = kani::any();
+
+        // Create a buffer with at least ndigits elements
+        let mut buf = [MaybeUninit::<u8>::uninit(); 11];
+
+        // Create parts array with at least 6 elements
+        let mut parts = [MaybeUninit::<Part>::uninit(); 7];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = to_exact_exp_str(format_exact, v, sign, ndigits, upper, &mut buf, &mut parts);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(to_exact_fixed_str)]
+    fn proof_to_exact_fixed_str() {
+        // Create a mock format_exact function
+        let format_exact = |_decoded: &Decoded, buf: &mut [MaybeUninit<u8>], _limit: i16| {
+            // Initialize the first few elements of the buffer
+            buf[0] = MaybeUninit::new(b'1'); // First digit must be non-zero
+            buf[1] = MaybeUninit::new(b'2');
+            buf[2] = MaybeUninit::new(b'3');
+
+            // Return a slice of the buffer and an exponent
+            (&[b'1', b'2', b'3'], 0i16)
+        };
+
+        // Create a test value (f32 is a DecodableFloat)
+        let v: f32 = kani::any();
+
+        // Create a sign
+        let sign = Sign::Minus; // Using a specific value for simplicity
+
+        // Create a fractional digits value
+        let frac_digits = kani::any_where(|&fd| fd < 10);
+
+        // Create a buffer with enough space
+        let mut buf = [MaybeUninit::<u8>::uninit(); 10];
+
+        // Create parts array with at least 4 elements
+        let mut parts = [MaybeUninit::<Part>::uninit(); 5];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = to_exact_fixed_str(format_exact, v, sign, frac_digits, &mut buf, &mut parts);
     }
 }

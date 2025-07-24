@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::iter::{
     FusedIterator, InPlaceIterable, SourceIter, TrustedFused, TrustedLen,
     TrustedRandomAccessNoCoerce,
@@ -135,6 +144,7 @@ impl<T, A: Allocator> IntoIter<T, A> {
     /// This method is used by in-place iteration, refer to the vec::in_place_collect
     /// documentation for an overview.
     #[cfg(not(no_global_oom_handling))]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub(super) fn forget_allocation_drop_remaining(&mut self) {
         let remaining = self.as_raw_mut_slice();
 
@@ -154,6 +164,7 @@ impl<T, A: Allocator> IntoIter<T, A> {
     }
 
     /// Forgets to Drop the remaining elements while still allowing the backing allocation to be freed.
+    #[cfg_attr(kani, kani::modifies(self))]
     pub(crate) fn forget_remaining_elements(&mut self) {
         // For the ZST case, it is crucial that we mutate `end` here, not `ptr`.
         // `ptr` must stay aligned, while `end` may be unaligned.
@@ -162,6 +173,7 @@ impl<T, A: Allocator> IntoIter<T, A> {
 
     #[cfg(not(no_global_oom_handling))]
     #[inline]
+    #[requires(self.buf.as_ptr() <= self.ptr.as_ptr() && self.ptr.as_ptr() <= self.end)]
     pub(crate) fn into_vecdeque(self) -> VecDeque<T, A> {
         // Keep our `Drop` impl from dropping the elements and the allocator
         let mut this = ManuallyDrop::new(self);
@@ -236,6 +248,8 @@ impl<T, A: Allocator> Iterator for IntoIter<T, A> {
     }
 
     #[inline]
+    #[requires(n <= self.len())]
+    #[cfg_attr(kani, kani::modifies(self))]
     fn advance_by(&mut self, n: usize) -> Result<(), NonZero<usize>> {
         let step_size = self.len().min(n);
         let to_drop = ptr::slice_from_raw_parts_mut(self.ptr.as_ptr(), step_size);
@@ -264,6 +278,8 @@ impl<T, A: Allocator> Iterator for IntoIter<T, A> {
     }
 
     #[inline]
+    #[requires(self.len() >= N)]
+    #[cfg_attr(kani, kani::modifies(self))]
     fn next_chunk<const N: usize>(&mut self) -> Result<[T; N], core::array::IntoIter<T, N>> {
         let mut raw_ary = [const { MaybeUninit::uninit() }; N];
 
@@ -396,6 +412,8 @@ impl<T, A: Allocator> DoubleEndedIterator for IntoIter<T, A> {
     }
 
     #[inline]
+    #[requires(n <= self.len())]
+    #[cfg_attr(kani, kani::modifies(self))]
     fn advance_back_by(&mut self, n: usize) -> Result<(), NonZero<usize>> {
         let step_size = self.len().min(n);
         if T::IS_ZST {

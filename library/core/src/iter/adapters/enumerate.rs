@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::adapters::zip::try_get_unchecked;
 use crate::iter::adapters::{SourceIter, TrustedRandomAccess, TrustedRandomAccessNoCoerce};
 use crate::iter::{FusedIterator, InPlaceIterable, TrustedFused, TrustedLen};
@@ -160,6 +166,11 @@ where
 
     #[rustc_inherit_overflow_checks]
     #[inline]
+    #[requires(can_dereference(&mut self.iter as *mut _))]
+    #[requires(can_dereference(&self.iter as *const _ as *const u8))]
+    #[requires(can_dereference(self as *const _ as *const u8))]
+    #[requires(idx < self.len())]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> <Self as Iterator>::Item
     where
         Self: TrustedRandomAccessNoCoerce,
@@ -313,5 +324,132 @@ impl<I: Default> Default for Enumerate<I> {
     /// ```
     fn default() -> Self {
         Enumerate::new(Default::default())
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Enumerate::__iterator_get_unchecked)]
+    fn proof_for_enumerate_iterator_get_unchecked() {
+        use core::iter::{ExactSizeIterator, TrustedRandomAccessNoCoerce};
+
+        // Create a simple iterator that implements TrustedRandomAccessNoCoerce
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                let remaining = self.data.len() - self.index;
+                (remaining, Some(remaining))
+            }
+        }
+
+        impl ExactSizeIterator for SimpleIter {
+            fn len(&self) -> usize {
+                self.data.len() - self.index
+            }
+        }
+
+        // Implement TrustedRandomAccessNoCoerce for SimpleIter
+        unsafe impl TrustedRandomAccessNoCoerce for SimpleIter {
+            const MAY_HAVE_SIDE_EFFECT: bool = false;
+
+            unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item {
+                self.data[self.index + idx]
+            }
+        }
+
+        // Create a SimpleIter instance with potentially consumed elements
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: kani::any::<usize>() % 6, // 0 to 5 (including empty case)
+        };
+
+        // Create an Enumerate with our SimpleIter
+        let mut enumerate = Enumerate {
+            iter,
+            count: kani::any::<usize>() % 10, // Some arbitrary count
+        };
+
+        // Choose an index and ensure it's within bounds
+        let idx = if enumerate.len() > 0 {
+            kani::any::<usize>() % enumerate.len()
+        } else {
+            0
+        };
+
+        // Call the function only if we have elements
+        if enumerate.len() > 0 {
+            unsafe {
+                let _ = enumerate.__iterator_get_unchecked(idx);
+            }
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Enumerate::as_inner)]
+    fn proof_for_enumerate_as_inner() {
+        use core::iter::SourceIter;
+
+        // Create a simple iterator type that implements SourceIter
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+        }
+
+        // Implement SourceIter for SimpleIter
+        unsafe impl SourceIter for SimpleIter {
+            type Source = [u32; 5];
+
+            unsafe fn as_inner(&mut self) -> &mut Self::Source {
+                &mut self.data
+            }
+        }
+
+        // Create a SimpleIter instance with potentially consumed elements
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: kani::any::<usize>() % 6, // 0 to 5 (including empty case)
+        };
+
+        // Create an Enumerate with our SimpleIter
+        let mut enumerate = Enumerate {
+            iter,
+            count: kani::any::<usize>() % 10, // Some arbitrary count
+        };
+
+        // Call the function
+        unsafe {
+            let _ = enumerate.as_inner();
+        }
     }
 }

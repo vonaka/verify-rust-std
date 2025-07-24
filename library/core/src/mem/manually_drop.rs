@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::ops::{Deref, DerefMut, DerefPure};
 use crate::ptr;
 
@@ -217,6 +223,7 @@ impl<T> ManuallyDrop<T> {
     #[must_use = "if you don't need the value, you can use `ManuallyDrop::drop` instead"]
     #[stable(feature = "manually_drop_take", since = "1.42.0")]
     #[inline]
+    #[cfg_attr(kani, kani::modifies(slot))]
     pub unsafe fn take(slot: &mut ManuallyDrop<T>) -> T {
         // SAFETY: we are reading from a reference, which is guaranteed
         // to be valid for reads.
@@ -249,6 +256,7 @@ impl<T: ?Sized> ManuallyDrop<T> {
     /// [pinned]: crate::pin
     #[stable(feature = "manually_drop", since = "1.20.0")]
     #[inline]
+    #[cfg_attr(kani, kani::modifies(slot))]
     pub unsafe fn drop(slot: &mut ManuallyDrop<T>) {
         // SAFETY: we are dropping the value pointed to by a mutable reference
         // which is guaranteed to be valid for writes.
@@ -276,3 +284,35 @@ impl<T: ?Sized> DerefMut for ManuallyDrop<T> {
 
 #[unstable(feature = "deref_pure_trait", issue = "87121")]
 unsafe impl<T: ?Sized> DerefPure for ManuallyDrop<T> {}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(ManuallyDrop::take)]
+    fn proof_manually_drop_take() {
+        // Create a ManuallyDrop with a simple primitive type
+        let value: u32 = kani::any();
+        let mut manually_drop = ManuallyDrop::new(value);
+
+        // Call the function - since there are no preconditions, we just need to verify
+        // that the modifies clause is correct
+        unsafe {
+            let _ = ManuallyDrop::take(&mut manually_drop);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(ManuallyDrop::drop)]
+    fn proof_manually_drop_drop() {
+        // Create a ManuallyDrop with a simple primitive type
+        let value: u32 = kani::any();
+        let mut manually_drop = ManuallyDrop::new(value);
+
+        // Call the function - since there are no preconditions, we just need to verify
+        // that the modifies clause is correct
+        unsafe {
+            ManuallyDrop::drop(&mut manually_drop);
+        }
+    }
+}

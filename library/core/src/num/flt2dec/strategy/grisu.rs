@@ -5,6 +5,12 @@
 //! [^1]: Florian Loitsch. 2010. Printing floating-point numbers quickly and
 //!   accurately with integers. SIGPLAN Not. 45, 6 (June 2010), 233-243.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::MaybeUninit;
 use crate::num::diy_float::Fp;
 use crate::num::flt2dec::{Decoded, MAX_SIG_DIGITS, round_up};
@@ -451,6 +457,11 @@ pub fn format_shortest_opt<'a>(
 /// The shortest mode implementation for Grisu with Dragon fallback.
 ///
 /// This should be used for most cases.
+#[requires(d.mant > 0)]
+#[requires(d.minus > 0)]
+#[requires(d.plus > 0)]
+#[requires(buf.len() >= MAX_SIG_DIGITS)]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn format_shortest<'a>(
     d: &Decoded,
     buf: &'a mut [MaybeUninit<u8>],
@@ -760,6 +771,11 @@ pub fn format_exact_opt<'a>(
 /// The exact and fixed mode implementation for Grisu with Dragon fallback.
 ///
 /// This should be used for most cases.
+#[requires(d.mant > 0)]
+#[requires(d.minus > 0)]
+#[requires(d.plus > 0)]
+#[requires(buf.len() > 0)]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn format_exact<'a>(
     d: &Decoded,
     buf: &'a mut [MaybeUninit<u8>],
@@ -772,5 +788,50 @@ pub fn format_exact<'a>(
     match format_exact_opt(d, unsafe { &mut *(buf as *mut _) }, limit) {
         Some(ret) => ret,
         None => fallback(d, buf, limit),
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(format_shortest)]
+    fn proof_format_shortest() {
+        // Create a Decoded struct with valid values that satisfy the preconditions
+        let decoded = Decoded {
+            mant: kani::any_where(|&m| m > 0 && m < 1000),
+            minus: kani::any_where(|&m| m > 0 && m < 100),
+            plus: kani::any_where(|&p| p > 0 && p < 100),
+            exp: kani::any_where(|&e| e >= -10 && e <= 10),
+            inclusive: kani::any(),
+        };
+
+        // Create a buffer with at least MAX_SIG_DIGITS elements
+        let mut buffer = [MaybeUninit::<u8>::uninit(); MAX_SIG_DIGITS + 1];
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = format_shortest(&decoded, &mut buffer);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(format_exact)]
+    fn proof_format_exact() {
+        // Create a Decoded struct with valid values that satisfy the preconditions
+        let decoded = Decoded {
+            mant: kani::any_where(|&m| m > 0 && m < 1000),
+            minus: kani::any_where(|&m| m > 0 && m < 100),
+            plus: kani::any_where(|&p| p > 0 && p < 100),
+            exp: kani::any_where(|&e| e >= -10 && e <= 10),
+            inclusive: kani::any(),
+        };
+
+        // Create a buffer with at least one element
+        let mut buffer = [MaybeUninit::<u8>::uninit(); 10];
+
+        // Choose a limit value
+        let limit = kani::any_where(|&l| l >= -10 && l <= 10);
+
+        // Call the function - if preconditions are met, this should be safe
+        let _ = format_exact(&decoded, &mut buffer, limit);
     }
 }

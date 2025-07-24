@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::InPlaceIterable;
 use crate::num::NonZero;
 use crate::ops::{ChangeOutputType, ControlFlow, FromResidual, Residual, Try};
@@ -226,4 +232,64 @@ where
 {
     const EXPAND_BY: Option<NonZero<usize>> = I::EXPAND_BY;
     const MERGE_BY: Option<NonZero<usize>> = I::MERGE_BY;
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(GenericShunt::as_inner)]
+    fn proof_for_generic_shunt_as_inner() {
+        use core::iter::SourceIter;
+        use core::ops::{ControlFlow, Try};
+
+        // Create a simple iterator type that implements SourceIter
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = Result<u32, &'static str>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(Ok(item))
+                } else {
+                    None
+                }
+            }
+        }
+
+        // Implement SourceIter for SimpleIter
+        unsafe impl SourceIter for SimpleIter {
+            type Source = [u32; 5];
+
+            unsafe fn as_inner(&mut self) -> &mut Self::Source {
+                &mut self.data
+            }
+        }
+
+        // Create a SimpleIter instance
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: 0,
+        };
+
+        // Create a residual for the GenericShunt
+        let mut residual: Option<&'static str> = None;
+
+        // Create a GenericShunt with our SimpleIter
+        let mut shunt = GenericShunt {
+            iter,
+            residual: &mut residual,
+        };
+
+        // Call the function
+        unsafe {
+            let _ = shunt.as_inner();
+        }
+    }
 }

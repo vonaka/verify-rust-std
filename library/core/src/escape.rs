@@ -1,5 +1,11 @@
 //! Helper code for character escaping.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::ascii;
 use crate::fmt::{self, Write};
 use crate::marker::PhantomData;
@@ -12,6 +18,7 @@ const HEX_DIGITS: [ascii::Char; 16] = *b"0123456789abcdef".as_ascii().unwrap();
 ///
 /// Returns a buffer with the escaped representation and its corresponding range.
 #[inline]
+#[requires(N >= 2)]
 const fn backslash<const N: usize>(a: ascii::Char) -> ([ascii::Char; N], Range<u8>) {
     const { assert!(N >= 2) };
 
@@ -27,6 +34,7 @@ const fn backslash<const N: usize>(a: ascii::Char) -> ([ascii::Char; N], Range<u
 ///
 /// Returns a buffer with the escaped representation and its corresponding range.
 #[inline]
+#[requires(N >= 4)]
 const fn hex_escape<const N: usize>(byte: u8) -> ([ascii::Char; N], Range<u8>) {
     const { assert!(N >= 4) };
 
@@ -45,6 +53,7 @@ const fn hex_escape<const N: usize>(byte: u8) -> ([ascii::Char; N], Range<u8>) {
 
 /// Returns a buffer with the verbatim character and its corresponding range.
 #[inline]
+#[requires(N >= 1)]
 const fn verbatim<const N: usize>(a: ascii::Char) -> ([ascii::Char; N], Range<u8>) {
     const { assert!(N >= 1) };
 
@@ -58,6 +67,7 @@ const fn verbatim<const N: usize>(a: ascii::Char) -> ([ascii::Char; N], Range<u8
 /// Escapes an ASCII character.
 ///
 /// Returns a buffer with the escaped representation and its corresponding range.
+#[requires(N >= 4)]
 const fn escape_ascii<const N: usize>(byte: u8) -> ([ascii::Char; N], Range<u8>) {
     const { assert!(N >= 4) };
 
@@ -134,6 +144,7 @@ const fn escape_ascii<const N: usize>(byte: u8) -> ([ascii::Char; N], Range<u8>)
 /// Escapes a character with `\u{NNNN}` representation.
 ///
 /// Returns a buffer with the escaped representation and its corresponding range.
+#[requires(N >= 10 && N < u8::MAX as usize)]
 const fn escape_unicode<const N: usize>(c: char) -> ([ascii::Char; N], Range<u8>) {
     const { assert!(N >= 10 && N < u8::MAX as usize) };
 
@@ -199,6 +210,8 @@ impl<const N: usize, ESCAPING> EscapeIterInner<N, ESCAPING> {
     ///
     /// `data.escape_seq` must contain an escape sequence in the range given by `alive`.
     #[inline]
+    #[requires(N < Self::LITERAL_ESCAPE_START as usize)]
+    #[requires(alive.end <= (N + 1) as u8)]
     const unsafe fn new(data: MaybeEscapedCharacter<N>, alive: Range<u8>) -> Self {
         // Longer escape sequences are not useful given `alive.end` is at most
         // `Self::LITERAL_ESCAPE_START`.

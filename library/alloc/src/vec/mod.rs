@@ -54,6 +54,15 @@
 #![stable(feature = "rust1", since = "1.0.0")]
 
 #[cfg(not(no_global_oom_handling))]
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::cmp;
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};

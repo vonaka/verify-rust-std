@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::cmp;
 use crate::fmt::{self, Debug};
 use crate::iter::{
@@ -105,6 +111,7 @@ where
     }
 
     #[inline]
+    #[requires(i < self.size())]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item
     where
         Self: TrustedRandomAccessNoCoerce,
@@ -691,5 +698,88 @@ impl<A: TrustedLen, B: TrustedLen> SpecFold for Zip<A, B> {
             }
         }
         accum
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Zip::__iterator_get_unchecked)]
+    fn proof_zip_iterator_get_unchecked() {
+        // Create mock iterators that implement TrustedRandomAccessNoCoerce
+        struct MockIter<T> {
+            items: [T; 5],
+            size: usize,
+        }
+
+        impl<T: Copy> Iterator for MockIter<T> {
+            type Item = T;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.size > 0 {
+                    self.size -= 1;
+                    Some(self.items[self.size])
+                } else {
+                    None
+                }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                (self.size, Some(self.size))
+            }
+        }
+
+        impl<T: Copy> TrustedRandomAccessNoCoerce for MockIter<T> {
+            const MAY_HAVE_SIDE_EFFECT: bool = false;
+
+            unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item {
+                self.items[idx]
+            }
+
+            fn size(&self) -> usize {
+                self.size
+            }
+        }
+
+        // Create a Zip iterator with arbitrary values
+        let size_a = kani::any_where(|&s| s < 10);
+        let size_b = kani::any_where(|&s| s < 10);
+
+        // Create mock data
+        let items_a = [1u32, 2, 3, 4, 5];
+        let items_b = [10u32, 20, 30, 40, 50];
+
+        let a = MockIter {
+            items: items_a,
+            size: size_a.min(5),
+        };
+        let b = MockIter {
+            items: items_b,
+            size: size_b.min(5),
+        };
+
+        let mut zip = Zip {
+            a,
+            b,
+            index: 0,
+            len: size_a.min(size_b).min(5),
+            a_len: size_a.min(5),
+        };
+
+        // Calculate the size that satisfies the precondition
+        let size = zip.size();
+
+        // If size is 0, there's nothing to test
+        if size == 0 {
+            return;
+        }
+
+        // Choose an index that satisfies the precondition
+        let i = kani::any_where(|&i| i < size);
+
+        // Call the function - if preconditions are met, this should be safe
+        unsafe {
+            let _ = zip.__iterator_get_unchecked(i);
+        }
     }
 }

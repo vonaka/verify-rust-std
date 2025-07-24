@@ -143,6 +143,15 @@
 #![allow(missing_docs)]
 #![stable(feature = "rust1", since = "1.0.0")]
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::alloc::Allocator;
 use core::iter::{FusedIterator, InPlaceIterable, SourceIter, TrustedFused, TrustedLen};
 use core::mem::{self, ManuallyDrop, swap};
@@ -742,6 +751,7 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// The caller must guarantee that `pos < self.len()`.
     ///
     /// Returns the new position of the element.
+    #[requires(pos < self.len())]
     unsafe fn sift_up(&mut self, start: usize, pos: usize) -> usize {
         // Take out the value at `pos` and create a hole.
         // SAFETY: The caller guarantees that pos < self.len()
@@ -773,6 +783,7 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// # Safety
     ///
     /// The caller must guarantee that `pos < end <= self.len()`.
+    #[requires(pos < end && end <= self.len())]
     unsafe fn sift_down_range(&mut self, pos: usize, end: usize) -> usize {
         // SAFETY: The caller guarantees that pos < end <= self.len().
         let mut hole = unsafe { Hole::new(&mut self.data, pos) };
@@ -815,6 +826,7 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// # Safety
     ///
     /// The caller must guarantee that `pos < self.len()`.
+    #[requires(pos < self.len())]
     unsafe fn sift_down(&mut self, pos: usize) -> usize {
         let len = self.len();
         // SAFETY: pos < len is guaranteed by the caller and
@@ -831,6 +843,7 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// # Safety
     ///
     /// The caller must guarantee that `pos < self.len()`.
+    #[requires(pos < self.len())]
     unsafe fn sift_down_to_bottom(&mut self, mut pos: usize) {
         let end = self.len();
         let start = pos;
@@ -1971,5 +1984,140 @@ impl<'a, T: 'a + Ord + Copy, A: Allocator> Extend<&'a T> for BinaryHeap<T, A> {
     #[inline]
     fn extend_reserve(&mut self, additional: usize) {
         self.reserve(additional);
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(sift_up)]
+    unsafe fn proof_for_sift_up() {
+        // Create a binary heap with a small number of elements
+        let mut heap = BinaryHeap::<i32>::new();
+
+        // Add some elements to the heap
+        heap.push(1);
+        heap.push(3);
+        heap.push(5);
+        heap.push(2);
+        heap.push(4);
+
+        // Get the length of the heap
+        let len = heap.len();
+
+        // Early return for empty heaps
+        if len == 0 {
+            return;
+        }
+
+        // Choose a valid start position
+        let start = kani::any::<usize>();
+        if start >= len {
+            return;
+        }
+
+        // Choose a valid position
+        let pos = kani::any::<usize>();
+        if pos >= len {
+            return;
+        }
+
+        // Call the function with valid parameters
+        unsafe { heap.sift_up(start, pos) };
+    }
+
+    #[kani::proof_for_contract(sift_down_range)]
+    unsafe fn proof_for_sift_down_range() {
+        // Create a binary heap with a small number of elements
+        let mut heap = BinaryHeap::<i32>::new();
+
+        // Add some elements to the heap
+        heap.push(1);
+        heap.push(3);
+        heap.push(5);
+        heap.push(2);
+        heap.push(4);
+
+        // Get the length of the heap
+        let len = heap.len();
+
+        // Early return for empty heaps
+        if len == 0 {
+            return;
+        }
+
+        // Choose a valid position
+        let pos = kani::any::<usize>();
+        if pos >= len {
+            return;
+        }
+
+        // Choose a valid end
+        let end = kani::any::<usize>();
+        if end <= pos || end > len {
+            return;
+        }
+
+        // Call the function with valid parameters
+        unsafe { heap.sift_down_range(pos, end) };
+    }
+
+    #[kani::proof_for_contract(sift_down)]
+    unsafe fn proof_for_sift_down() {
+        // Create a binary heap with a small number of elements
+        let mut heap = BinaryHeap::<i32>::new();
+
+        // Add some elements to the heap
+        heap.push(1);
+        heap.push(3);
+        heap.push(5);
+        heap.push(2);
+        heap.push(4);
+
+        // Get the length of the heap
+        let len = heap.len();
+
+        // Early return for empty heaps
+        if len == 0 {
+            return;
+        }
+
+        // Choose a valid position
+        let pos = kani::any::<usize>();
+        if pos >= len {
+            return;
+        }
+
+        // Call the function with valid parameters
+        unsafe { heap.sift_down(pos) };
+    }
+
+    #[kani::proof_for_contract(sift_down_to_bottom)]
+    unsafe fn proof_for_sift_down_to_bottom() {
+        // Create a binary heap with a small number of elements
+        let mut heap = BinaryHeap::<i32>::new();
+
+        // Add some elements to the heap
+        heap.push(1);
+        heap.push(3);
+        heap.push(5);
+        heap.push(2);
+        heap.push(4);
+
+        // Get the length of the heap
+        let len = heap.len();
+
+        // Early return for empty heaps
+        if len == 0 {
+            return;
+        }
+
+        // Choose a valid position
+        let pos = kani::any::<usize>();
+        if pos >= len {
+            return;
+        }
+
+        // Call the function with valid parameters
+        unsafe { heap.sift_down_to_bottom(pos) };
     }
 }

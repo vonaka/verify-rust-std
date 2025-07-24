@@ -1,5 +1,11 @@
 //! This module contains the entry points for `slice::sort_unstable`.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::SizedTypeProperties;
 #[cfg(not(any(feature = "optimize_for_size", target_pointer_width = "16")))]
 use crate::slice::sort::shared::find_existing_run;
@@ -17,6 +23,9 @@ pub(crate) mod quicksort;
 /// Upholds all safety properties outlined here:
 /// <https://github.com/Voultapher/sort-research-rs/blob/main/writeup/sort_safety/text.md>
 #[inline(always)]
+#[requires(size_of::<T>() == 0 || v.len() <= isize::MAX as usize)]
+#[requires(v.len() == 0 || can_write(v.as_mut_ptr()))]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
 pub fn sort<T, F: FnMut(&T, &T) -> bool>(v: &mut [T], is_less: &mut F) {
     // Arrays of zero-sized types are always all-equal, and thus sorted.
     if T::IS_ZST {
@@ -58,6 +67,12 @@ pub fn sort<T, F: FnMut(&T, &T) -> bool>(v: &mut [T], is_less: &mut F) {
 /// inlined insertion sort i-cache footprint remains minimal.
 #[cfg(not(any(feature = "optimize_for_size", target_pointer_width = "16")))]
 #[inline(never)]
+#[requires(run_len <= len)]
+#[requires(v.len() > 0)]
+#[requires(v.len() <= usize::MAX / 2)]
+#[requires(v.len() > 0 ==> (v.len() | 1).ilog2() < u32::MAX / 2)]
+#[requires(v.len() < usize::MAX / 4)]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
 fn ipnsort<T, F>(v: &mut [T], is_less: &mut F)
 where
     F: FnMut(&T, &T) -> bool,
@@ -82,4 +97,74 @@ where
     // The binary OR by one is used to eliminate the zero-check in the logarithm.
     let limit = 2 * (len | 1).ilog2();
     crate::slice::sort::unstable::quicksort::quicksort(v, None, limit, is_less);
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(sort)]
+    fn proof_sort() {
+        // Test with a non-zero sized type
+        proof_sort_i32();
+
+        // Test with a zero-sized type
+        proof_sort_zst();
+    }
+
+    #[cfg(kani)]
+    fn proof_sort_i32() {
+        // Use a variable array size to test different scenarios
+        let size = kani::any::<u8>() as usize % 11;
+
+        // Create an array to sort
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size.min(10) {
+            data[i] = kani::any();
+        }
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Call the function with valid inputs
+        sort(&mut data[..size], &mut is_less);
+    }
+
+    #[cfg(kani)]
+    fn proof_sort_zst() {
+        // Use a variable array size to test different scenarios
+        let size = kani::any::<u8>() as usize % 11;
+
+        // Create an array of zero-sized type
+        let mut data = [(); 10];
+
+        // Create a comparison function (always returns false for ZST)
+        let mut is_less = |_: &(), _: &()| -> bool { false };
+
+        // Call the function with valid inputs
+        sort(&mut data[..size], &mut is_less);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(ipnsort)]
+    fn proof_ipnsort() {
+        // Use a variable array size to test different scenarios
+        // We need v.len() > 0 for ipnsort
+        let size = 1 + (kani::any::<u8>() as usize % 9);
+
+        // Create an array to sort
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size {
+            data[i] = kani::any();
+        }
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Call the function with valid inputs
+        ipnsort(&mut data[..size], &mut is_less);
+    }
 }

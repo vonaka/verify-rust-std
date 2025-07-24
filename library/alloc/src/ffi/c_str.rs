@@ -1,5 +1,14 @@
 //! [`CString`] and its related types.
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::borrow::Borrow;
 use core::ffi::{CStr, c_char};
 use core::num::NonZero;
@@ -1310,5 +1319,66 @@ impl core::error::Error for IntoStringError {
 
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         Some(&self.error)
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(_from_vec_unchecked)]
+    unsafe fn proof_for_from_vec_unchecked() {
+        // Create a vector with a small number of bytes, none of which are null
+        let mut v = Vec::new();
+
+        // Add a few non-null bytes to the vector
+        // We'll use a small number of bytes for verification
+        let len = kani::any::<u8>();
+        if len > 10 {
+            return;
+        }
+
+        for _ in 0..len {
+            // Generate a non-zero byte
+            let byte = kani::any::<u8>();
+            if byte == 0 {
+                return;
+            }
+            v.push(byte);
+        }
+
+        // Call the function with the valid input
+        unsafe {
+            let _cstring = CString::_from_vec_unchecked(v);
+        }
+    }
+
+    #[kani::proof_for_contract(_from_vec_with_null_unchecked)]
+    unsafe fn proof_for_from_vec_with_null_unchecked() {
+        // Create a vector with a small number of bytes and a null byte at the end
+        let mut v = Vec::new();
+
+        // Add a few non-null bytes to the vector
+        // We'll use a small number of bytes for verification
+        let len = kani::any::<u8>();
+        if len > 9 {
+            // Leave room for the null byte
+            return;
+        }
+
+        for _ in 0..len {
+            // Generate a non-zero byte
+            let byte = kani::any::<u8>();
+            if byte == 0 {
+                return;
+            }
+            v.push(byte);
+        }
+
+        // Add the null byte at the end
+        v.push(0);
+
+        // Call the function with the valid input
+        unsafe {
+            let _cstring = CString::_from_vec_with_null_unchecked(v);
+        }
     }
 }

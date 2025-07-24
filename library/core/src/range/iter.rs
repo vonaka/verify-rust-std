@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::{
     FusedIterator, Step, TrustedLen, TrustedRandomAccess, TrustedRandomAccessNoCoerce, TrustedStep,
 };
@@ -104,6 +110,7 @@ impl<A: Step> Iterator for IterRange<A> {
     }
 
     #[inline]
+    #[requires(idx < self.0.size_hint().0)]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item
     where
         Self: TrustedRandomAccessNoCoerce,
@@ -335,5 +342,24 @@ impl<A: Step> IntoIterator for RangeFrom<A> {
 
     fn into_iter(self) -> Self::IntoIter {
         IterRangeFrom(self.into())
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(IterRange::__iterator_get_unchecked)]
+    fn proof_iterator_get_unchecked() {
+        // Create a range with arbitrary bounds
+        let start: u8 = kani::any();
+        let end: u8 = kani::any();
+
+        // Create an IterRange from the range
+        let mut iter_range = IterRange(legacy::Range { start, end });
+
+        // Choose an arbitrary index
+        let idx: usize = kani::any();
+
+        // Call the function
+        unsafe { iter_range.__iterator_get_unchecked(idx) };
     }
 }

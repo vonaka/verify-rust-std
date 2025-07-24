@@ -2,6 +2,15 @@
 //! <https://github.com/matthieu-m/rfc2580/blob/b58d1d3cba0d4b5e859d3617ea2d0943aaa31329/examples/thin.rs>
 //! by matthieu-m
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
 #[cfg(not(no_global_oom_handling))]
@@ -209,6 +218,7 @@ impl WithOpaqueHeader {
     }
 
     #[cfg(not(no_global_oom_handling))]
+    #[requires(size_of::<T>() == 0)]
     fn new_unsize_zst<Dyn, T>(value: T) -> Self
     where
         Dyn: ?Sized,
@@ -427,5 +437,18 @@ impl<H> WithHeader<H> {
 impl<T: ?Sized + Error> Error for ThinBox<T> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         self.deref().source()
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(new_unsize_zst)]
+    fn proof_for_new_unsize_zst() {
+        // Create a zero-sized array that can be unsized to a slice
+        let value = [0i32; 0];
+
+        // Call the function with the zero-sized type
+        // [i32; 0] is a zero-sized type that can be unsized to [i32]
+        let _result = WithOpaqueHeader::new_unsize_zst::<[i32], [i32; 0]>(value);
     }
 }

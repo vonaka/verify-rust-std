@@ -1,6 +1,12 @@
 #![unstable(feature = "async_drop", issue = "126482")]
 
 #[allow(unused_imports)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use core::future::Future;
 
 #[allow(unused_imports)]
@@ -46,4 +52,26 @@ pub trait AsyncDrop {
 pub async unsafe fn async_drop_in_place<T: ?Sized>(_to_drop: *mut T) {
     // Code here does not matter - this is replaced by the
     // real implementation by the compiler.
+}
+#[cfg(kani)] mod verify {use super::*;
+
+#[kani::proof_for_contract(async_drop_in_place)]
+async fn proof_for_contract_async_drop_in_place() {
+    // Create a simple type that can be dropped
+    struct SimpleType {
+        value: i32,
+    }
+    
+    // Allocate memory for our test object
+    let mut value = SimpleType { value: kani::any::<i32>() };
+    
+    // Get a raw pointer to the value
+    let ptr = &mut value as *mut SimpleType;
+    
+    // Call the function with the pointer
+    // The precondition is satisfied because ptr points to a valid object
+    unsafe {
+        async_drop_in_place(ptr).await;
+    }
+}
 }

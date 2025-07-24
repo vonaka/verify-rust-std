@@ -9,6 +9,12 @@
 //! [`await`]: ../../std/keyword.await.html
 //! [async book]: https://rust-lang.github.io/async-book/
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::ptr::NonNull;
 use crate::task::Context;
 
@@ -61,6 +67,7 @@ unsafe impl Sync for ResumeTy {}
 #[unstable(feature = "gen_future", issue = "none")]
 #[must_use]
 #[inline]
+#[requires(can_dereference(cx.0.as_ptr()))]
 pub unsafe fn get_context<'a, 'b>(cx: ResumeTy) -> &'a mut Context<'b> {
     // SAFETY: the caller must guarantee that `cx.0` is a valid pointer
     // that fulfills all the requirements for a mutable reference.

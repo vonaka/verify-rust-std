@@ -1,5 +1,11 @@
 //! Integer and floating-point number formatting
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::MaybeUninit;
 use crate::num::fmt as numfmt;
 use crate::ops::{Div, Rem, Sub};
@@ -597,6 +603,8 @@ impl u128 {
         reason = "specialized method meant to only be used by `SpecToString` implementation",
         issue = "none"
     )]
+    #[requires(buf.len() >= U128_MAX_DEC_N)]
+    #[cfg_attr(kani, kani::modifies(buf.as_mut_ptr()))]
     pub fn _fmt<'a>(self, buf: &'a mut [MaybeUninit<u8>]) -> &'a str {
         // Optimize common-case zero, which would also need special treatment due to
         // its "leading" zero.

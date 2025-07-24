@@ -1,5 +1,11 @@
 //! This module contains a stable quicksort and partition implementation.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::{ManuallyDrop, MaybeUninit};
 use crate::slice::sort::shared::FreezeMarker;
 use crate::slice::sort::shared::pivot::choose_pivot;
@@ -13,6 +19,10 @@ use crate::{intrinsics, ptr};
 /// `limit` when initialized with `c*log(v.len())` for some c ensures we do not
 /// overflow the stack or go quadratic.
 #[inline(never)]
+#[requires(scratch.len() >= max(v.len() - v.len() / 2, SMALL_SORT_GENERAL_SCRATCH_LEN))]
+#[requires(v.len() <= isize::MAX as usize)]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
+#[cfg_attr(kani, kani::modifies(scratch.as_mut_ptr()))]
 pub fn quicksort<T, F: FnMut(&T, &T) -> bool>(
     mut v: &mut [T],
     scratch: &mut [MaybeUninit<T>],
@@ -87,6 +97,14 @@ pub fn quicksort<T, F: FnMut(&T, &T) -> bool>(
 ///
 /// If `is_less` is not a strict total order or panics, `scratch.len() < v.len()`,
 /// or `pivot_pos >= v.len()`, the result and `v`'s state is sound but unspecified.
+#[requires(scratch.len() >= v.len())]
+#[requires(pivot_pos < v.len())]
+#[requires(can_dereference(v.as_ptr().add(i)) for i in 0..v.len())]
+#[requires(can_dereference(v.as_ptr().add(pivot_pos)))]
+#[requires(can_write(MaybeUninit::slice_as_mut_ptr(scratch).add(i)) for i in 0..v.len())]
+#[requires(!same_allocation(v.as_ptr(), MaybeUninit::slice_as_mut_ptr(scratch)))]
+#[cfg_attr(kani, kani::modifies(v.as_mut_ptr()))]
+#[cfg_attr(kani, kani::modifies(scratch.as_mut_ptr()))]
 fn stable_partition<T, F: FnMut(&T, &T) -> bool>(
     v: &mut [T],
     scratch: &mut [MaybeUninit<T>],
@@ -199,6 +217,11 @@ impl<T> PartitionState<T> {
     ///
     /// `scan` and `scratch` must point to valid disjoint buffers of length `len`. The
     /// scan buffer must be initialized.
+    #[requires(scan.add(len) <= scratch.add(len))]
+    #[requires(!same_allocation(scan, scratch) || scan.add(len) <= scratch || scan >= scratch.add(len))]
+    #[requires(can_dereference(scan.add(i)) for i in 0..len)]
+    #[requires(can_write(scratch.add(i)) for i in 0..len)]
+    #[requires(len > 0)]
     unsafe fn new(scan: *const T, scratch: *mut T, len: usize) -> Self {
         // SAFETY: See function safety comment.
         unsafe { Self { scratch_base: scratch, scan, num_left: 0, scratch_rev: scratch.add(len) } }
@@ -213,6 +236,14 @@ impl<T> PartitionState<T> {
     /// This function may be called at most `len` times. If it is called exactly
     /// `len` times the scratch buffer then contains a copy of each element from
     /// the scan buffer exactly once - a permutation, and num_left <= len.
+    #[requires(self.scan < self.scratch_rev)]
+    #[requires(can_dereference(self.scan))]
+    #[requires(can_write(self.scratch_base.add(self.num_left)) || can_write(self.scratch_rev))]
+    #[requires(self.num_left < self.scratch_rev.offset_from(self.scratch_base) as usize)]
+    #[requires(self.scratch_base.add(self.num_left) < self.scratch_rev)]
+    #[requires(can_write(self.scratch_rev.sub(1)))]
+    #[cfg_attr(kani, kani::modifies(self.scratch_base.add(self.num_left)))]
+    #[cfg_attr(kani, kani::modifies(self.scratch_rev))]
     unsafe fn partition_one(&mut self, towards_left: bool) -> *mut T {
         // SAFETY: see individual comments.
         unsafe {
@@ -256,4 +287,172 @@ fn has_direct_interior_mutability<T>() -> bool {
     // in a way that must be preserved after the sort operation concludes.
     // Otherwise a type like Mutex<Option<Box<str>>> could lead to double free.
     !T::is_freeze()
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(quicksort)]
+    fn proof_quicksort() {
+        // Use a variable array size
+        let size = 2 + (kani::any::<u8>() % 8) as usize;
+
+        // Create an array to sort
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size {
+            data[i] = kani::any();
+        }
+
+        // Calculate scratch size based on the requirement
+        // scratch.len() >= max(v.len() - v.len() / 2, SMALL_SORT_GENERAL_SCRATCH_LEN)
+        let min_scratch_size = size - size / 2;
+        // Assuming SMALL_SORT_GENERAL_SCRATCH_LEN is a small constant
+        let scratch_size = min_scratch_size + (kani::any::<u8>() as usize % 5);
+
+        // Create a scratch space
+        let mut scratch = [MaybeUninit::<i32>::uninit(); 10];
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Set up an arbitrary limit value
+        let limit: u32 = 1 + kani::any::<u8>() as u32;
+
+        // Set up a left ancestor pivot (None for initial call)
+        let left_ancestor_pivot: Option<&i32> = None;
+
+        // Call the function with valid inputs
+        quicksort(
+            &mut data[..size],
+            &mut scratch[..scratch_size],
+            limit,
+            left_ancestor_pivot,
+            &mut is_less,
+        );
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(stable_partition)]
+    fn proof_stable_partition() {
+        // Use a variable array size
+        let size = 2 + (kani::any::<u8>() % 8) as usize;
+
+        // Create an array to partition
+        let mut data = [0i32; 10];
+
+        // Initialize with arbitrary values
+        for i in 0..size {
+            data[i] = kani::any();
+        }
+
+        // Create a scratch space that's at least as large as the data array
+        // Test both exact size and larger scratch spaces
+        let scratch_size = size + (kani::any::<bool>() as usize * kani::any::<u8>() as usize % 5);
+        let mut scratch = [MaybeUninit::<i32>::uninit(); 10];
+
+        // Choose a pivot position that's within bounds
+        let pivot_pos: usize = kani::any::<u8>() as usize % size;
+
+        // Choose whether the pivot goes to the left or right
+        let pivot_goes_left: bool = kani::any();
+
+        // Create a comparison function
+        let mut is_less = |x: &i32, y: &i32| -> bool { x < y };
+
+        // Call the function with valid inputs
+        let _ = stable_partition(
+            &mut data[..size],
+            &mut scratch[..scratch_size],
+            pivot_pos,
+            pivot_goes_left,
+            &mut is_less,
+        );
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(new)]
+    fn proof_partition_state_new() {
+        // Use variable array sizes
+        let scan_size = 2 + (kani::any::<u8>() % 8) as usize;
+        let scratch_size = scan_size + (kani::any::<u8>() % 5) as usize;
+
+        // Create two separate arrays
+        let mut scan_data = [0i32; 10];
+        let mut scratch_data = [0i32; 10];
+
+        // Initialize scan data with arbitrary values
+        for i in 0..scan_size {
+            scan_data[i] = kani::any();
+        }
+
+        // Get pointers to the arrays
+        let scan = scan_data.as_ptr();
+        let scratch = scratch_data.as_mut_ptr();
+
+        // Choose a length that's greater than 0 and at most scan_size
+        // Test both edge cases and middle values
+        let len: usize = if kani::any() {
+            // Edge case: minimum length
+            1
+        } else if kani::any() {
+            // Edge case: maximum length
+            scan_size
+        } else {
+            // Middle value
+            1 + (kani::any::<u8>() as usize % scan_size)
+        };
+
+        // Call the function with valid inputs
+        unsafe {
+            let _ = PartitionState::<i32>::new(scan, scratch, len);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(partition_one)]
+    fn proof_partition_one() {
+        // Use a variable array size
+        let size = 2 + (kani::any::<u8>() % 8) as usize;
+
+        // Create two separate arrays
+        let mut scan_data = [0i32; 10];
+        let mut scratch_data = [0i32; 10];
+
+        // Initialize scan data with arbitrary values
+        for i in 0..size {
+            scan_data[i] = kani::any();
+        }
+
+        // Get pointers to the arrays
+        let scan = scan_data.as_ptr();
+        let scratch_base = scratch_data.as_mut_ptr();
+
+        // Choose a length that's greater than 0 and at most size
+        let len: usize = 1 + (kani::any::<u8>() as usize % size);
+
+        // Choose an arbitrary number of elements already processed
+        // This simulates the state after some iterations
+        let num_left = kani::any::<u8>() as usize % (len / 2 + 1);
+
+        // Calculate how many elements have been scanned
+        let scanned = kani::any::<u8>() as usize % (len - num_left + 1);
+
+        unsafe {
+            // Create a PartitionState with valid pointers
+            let mut state = PartitionState {
+                scratch_base,
+                scan: scan.add(scanned),
+                num_left,
+                scratch_rev: scratch_base.add(len),
+            };
+
+            // Choose whether to partition towards left or right
+            let towards_left: bool = kani::any();
+
+            // Call the function with valid inputs
+            let _ = state.partition_one(towards_left);
+        }
+    }
 }

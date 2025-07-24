@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::num::NonZero;
 
 /// Types where `==` & `!=` are equivalent to comparing their underlying bytes.
@@ -80,3 +86,12 @@ macro_rules! is_bytewise_comparable_array_length {
 //    error: specializing impl repeats parameter `N`
 // so just do it for a couple of plausibly-common ones.
 is_bytewise_comparable_array_length!(0, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64);
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    // Since there were no functions in the provided code that required contract annotations,
+    // there are no harnesses to create. The code consisted of trait definitions and macro
+    // implementations without specific functions that had SAFETY comments needing translation
+    // into contract statements.
+}

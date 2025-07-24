@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::TrustedLen;
 
 /// [`TrustedLen`] cannot have methods, so this allows augmenting it.
@@ -27,10 +33,61 @@ pub(crate) trait UncheckedIterator: TrustedLen {
     /// point you might want to implement this manually instead.
     #[unstable(feature = "trusted_len_next_unchecked", issue = "37572")]
     #[inline]
+    #[requires(self.size_hint().0 != 0)]
     unsafe fn next_unchecked(&mut self) -> Self::Item {
         let opt = self.next();
         // SAFETY: The caller promised that we're not empty, and
         // `Self: TrustedLen` so we can actually trust the `size_hint`.
         unsafe { opt.unwrap_unchecked() }
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(UncheckedIterator::next_unchecked)]
+    fn proof_unchecked_iterator_next_unchecked() {
+        // Create a simple iterator that implements UncheckedIterator
+        struct TestIterator {
+            items: [u32; 5],
+            position: usize,
+            size: usize,
+        }
+
+        impl Iterator for TestIterator {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.position < self.size {
+                    let item = self.items[self.position];
+                    self.position += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                let remaining = self.size.saturating_sub(self.position);
+                (remaining, Some(remaining))
+            }
+        }
+
+        impl TrustedLen for TestIterator {}
+
+        impl UncheckedIterator for TestIterator {}
+
+        // Create an iterator with a non-zero size hint
+        let size = kani::any_where(|&s| s > 0 && s <= 5);
+        let mut iter = TestIterator {
+            items: [1, 2, 3, 4, 5],
+            position: 0,
+            size,
+        };
+
+        // Call the function - if preconditions are met, this should be safe
+        unsafe {
+            let _ = UncheckedIterator::next_unchecked(&mut iter);
+        }
     }
 }

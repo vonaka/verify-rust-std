@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::array;
 use crate::iter::adapters::SourceIter;
 use crate::iter::{
@@ -273,4 +279,59 @@ unsafe impl<I: InPlaceIterable + Iterator, const N: usize> InPlaceIterable for A
             _ => None,
         }
     };
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(ArrayChunks::as_inner)]
+    fn proof_for_array_chunks_as_inner() {
+        use core::iter::SourceIter;
+
+        // Create a simple iterator type that implements SourceIter
+        struct SimpleIter {
+            data: [u8; 10],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u8;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+        }
+
+        // Implement SourceIter for SimpleIter
+        unsafe impl SourceIter for SimpleIter {
+            type Source = [u8; 10];
+
+            unsafe fn as_inner(&mut self) -> &mut Self::Source {
+                &mut self.data
+            }
+        }
+
+        // Create a SimpleIter instance
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            index: 0,
+        };
+
+        // Create an ArrayChunks with our SimpleIter
+        // Using a small chunk size of 3 for verification
+        const CHUNK_SIZE: usize = 3;
+        let mut array_chunks = ArrayChunks::<_, CHUNK_SIZE>::new(iter);
+
+        // Call the function
+        unsafe {
+            let _ = array_chunks.as_inner();
+        }
+    }
 }

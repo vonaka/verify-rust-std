@@ -9,6 +9,15 @@
 //! or from a raw pointer.
 #![stable(feature = "rust1", since = "1.0.0")]
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::borrow::{Borrow, BorrowMut};
 #[cfg(not(no_global_oom_handling))]
 use core::cmp::Ordering::{self, Less};
@@ -402,6 +411,9 @@ impl<T> [T] {
         return T::to_vec(self, alloc);
 
         trait ConvertVec {
+            #[ensures(vec.len() == s.len())]
+            #[requires(v.capacity() >= s.len())]
+            #[ensures(v.len() == s.len())]
             fn to_vec<A: Allocator>(s: &[Self], alloc: A) -> Vec<Self, A>
             where
                 Self: Sized;
@@ -416,6 +428,7 @@ impl<T> [T] {
                 }
                 impl<'a, T, A: Allocator> Drop for DropGuard<'a, T, A> {
                     #[inline]
+                    #[ensures(self.vec.len() == self.num_init)]
                     fn drop(&mut self) {
                         // SAFETY:
                         // items were marked initialized in the loop below

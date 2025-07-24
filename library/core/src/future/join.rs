@@ -1,5 +1,11 @@
 #![allow(unused_imports, unused_macros)] // items are used by the macro
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::cell::UnsafeCell;
 use crate::future::{Future, poll_fn};
 use crate::mem;
@@ -159,6 +165,8 @@ pub enum MaybeDone<F: Future> {
 
 #[unstable(feature = "future_join", issue = "91642")]
 impl<F: Future> MaybeDone<F> {
+    #[requires(matches!(self, MaybeDone::Done(_)))]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub fn take_output(&mut self) -> Option<F::Output> {
         match *self {
             MaybeDone::Done(_) => match mem::replace(self, Self::Taken) {
@@ -174,6 +182,8 @@ impl<F: Future> MaybeDone<F> {
 impl<F: Future> Future for MaybeDone<F> {
     type Output = ();
 
+    #[requires(!matches!(self.as_ref().get_ref(), MaybeDone::Taken))]
+    #[cfg_attr(kani, kani::modifies(self))]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // SAFETY: pinning in structural for `f`
         unsafe {

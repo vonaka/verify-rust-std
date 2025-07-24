@@ -6,6 +6,12 @@
 //! for pivot selection. Using this as a fallback ensures O(n) worst case running time with
 //! better performance than one would get using heapsort as fallback.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::cfg_select;
 use crate::mem::{self, SizedTypeProperties};
 #[cfg(not(feature = "optimize_for_size"))]
@@ -14,6 +20,8 @@ use crate::slice::sort::shared::smallsort::insertion_sort_shift_left;
 use crate::slice::sort::unstable::quicksort::partition;
 
 /// Reorders the slice such that the element at `index` is at its final sorted position.
+#[requires(v.len() > 0 && (T::IS_ZST || index < v.len()))]
+#[cfg_attr(kani, kani::modifies(v))]
 pub(crate) fn partition_at_index<T, F>(
     v: &mut [T],
     index: usize,
@@ -63,6 +71,9 @@ where
 const INSERTION_SORT_THRESHOLD: usize = 16;
 
 #[cfg(not(feature = "optimize_for_size"))]
+#[requires(v.len() > 0)]
+#[requires(index < v.len())]
+#[cfg_attr(kani, kani::modifies(v))]
 fn partition_at_index_loop<'a, T, F>(
     mut v: &'a mut [T],
     mut index: usize,
@@ -166,6 +177,10 @@ fn max_index<T, F: FnMut(&T, &T) -> bool>(slice: &[T], is_less: &mut F) -> Optio
 
 /// Selection algorithm to select the k-th element from the slice in guaranteed O(n) time.
 /// This is essentially a quickselect that uses Tukey's Ninther for pivot selection
+#[requires(v.len() > 0)]
+#[requires(k < v.len())]
+#[requires(!T::IS_ZST)]
+#[cfg_attr(kani, kani::modifies(v))]
 fn median_of_medians<T, F: FnMut(&T, &T) -> bool>(mut v: &mut [T], is_less: &mut F, mut k: usize) {
     // Since this function isn't public, it should never be called with an out-of-bounds index.
     debug_assert!(k < v.len());

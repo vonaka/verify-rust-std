@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::fmt;
 use crate::future::Future;
 use crate::pin::Pin;
@@ -146,8 +152,50 @@ where
 {
     type Output = T;
 
+    #[requires(can_dereference(self.as_ref().get_ref()))]
+    #[cfg_attr(kani, kani::modifies(self))]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<T> {
         // SAFETY: We are not moving out of the pinned field.
         (unsafe { &mut self.get_unchecked_mut().f })(cx)
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(PollFn::poll)]
+    fn proof_for_poll_fn_poll() {
+        use core::future::Future;
+        use core::pin::Pin;
+        use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+
+        // Create a simple function that returns Poll
+        fn simple_poll_fn(_cx: &mut Context<'_>) -> Poll<u32> {
+            if kani::any() {
+                Poll::Ready(42)
+            } else {
+                Poll::Pending
+            }
+        }
+
+        // Create a PollFn with our simple function
+        let mut poll_fn = PollFn { f: simple_poll_fn };
+
+        // Pin the PollFn
+        let pinned = unsafe { Pin::new_unchecked(&mut poll_fn) };
+
+        // Create a simple waker for the context
+        const VTABLE: RawWakerVTable = RawWakerVTable::new(
+            |_| RawWaker::new(core::ptr::null(), &VTABLE),
+            |_| {},
+            |_| {},
+            |_| {},
+        );
+        let waker = unsafe { Waker::from_raw(RawWaker::new(core::ptr::null(), &VTABLE)) };
+        let mut context = Context::from_waker(&waker);
+
+        // Call the poll function
+        let _ = pinned.poll(&mut context);
     }
 }

@@ -1,6 +1,12 @@
 //! This module contains the entry points for `slice::sort`.
 
 #[cfg(not(any(feature = "optimize_for_size", target_pointer_width = "16")))]
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::cmp;
 use crate::mem::{MaybeUninit, SizedTypeProperties};
 #[cfg(not(any(feature = "optimize_for_size", target_pointer_width = "16")))]
@@ -156,6 +162,11 @@ impl<T, const N: usize> AlignedStorage<T, N> {
         Self { _align: [], storage: [const { MaybeUninit::uninit() }; N] }
     }
 
+    #[requires(N >= size_of::<T>())]
+    #[requires(size_of::<T>() > 0)]
+    #[requires(N / size_of::<T>() <= isize::MAX as usize)]
+    #[requires(align_of::<T>() <= align_of::<u8>())]
+    #[cfg_attr(kani, kani::modifies(self.storage.as_mut_ptr()))]
     fn as_uninit_slice_mut(&mut self) -> &mut [MaybeUninit<T>] {
         let len = N / size_of::<T>();
 

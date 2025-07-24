@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::any::Any;
 use core::error::Error;
 use core::mem;
@@ -391,6 +400,7 @@ impl<A: Allocator> Box<dyn Any, A> {
     /// [`downcast`]: Self::downcast
     #[inline]
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
+    #[requires(self.is::<T>())]
     pub unsafe fn downcast_unchecked<T: Any>(self) -> Box<T, A> {
         debug_assert!(self.is::<T>());
         unsafe {

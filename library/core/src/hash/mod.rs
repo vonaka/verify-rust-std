@@ -976,3 +976,10 @@ mod impls {
         }
     }
 }
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    // Since there were no functions in the provided file that required contract annotations based on the given criteria,
+    // there are no harnesses to create.
+}

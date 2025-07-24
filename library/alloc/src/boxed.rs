@@ -183,6 +183,15 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::borrow::{Borrow, BorrowMut};
 #[cfg(not(no_global_oom_handling))]
 use core::clone::CloneToUninit;
@@ -751,6 +760,7 @@ impl<T> Box<[T]> {
     #[unstable(feature = "slice_as_array", issue = "133508")]
     #[inline]
     #[must_use]
+    #[requires(self.len() == N)]
     pub fn into_array<const N: usize>(self) -> Option<Box<[T; N]>> {
         if self.len() == N {
             let ptr = Self::into_raw(self) as *mut [T; N];
@@ -2130,3 +2140,36 @@ impl<E: Error> Error for Box<E> {
 
 #[unstable(feature = "pointer_like_trait", issue = "none")]
 impl<T> PointerLike for Box<T> {}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(into_array)]
+    fn proof_for_into_array_3() {
+        // Create a boxed slice with exactly 3 elements
+        let boxed_slice: Box<[i32]> = Box::new([1, 2, 3]);
+
+        // Call the function with the valid input
+        // The function requires that the length of the slice is exactly 3
+        let _result = boxed_slice.into_array::<3>();
+    }
+
+    #[kani::proof_for_contract(into_array)]
+    fn proof_for_into_array_5() {
+        // Create a boxed slice with exactly 5 elements
+        let boxed_slice: Box<[i32]> = Box::new([1, 2, 3, 4, 5]);
+
+        // Call the function with the valid input
+        // The function requires that the length of the slice is exactly 5
+        let _result = boxed_slice.into_array::<5>();
+    }
+
+    #[kani::proof_for_contract(into_array)]
+    fn proof_for_into_array_0() {
+        // Create a boxed slice with exactly 0 elements
+        let boxed_slice: Box<[i32]> = Box::new([]);
+
+        // Call the function with the valid input
+        // The function requires that the length of the slice is exactly 0
+        let _result = boxed_slice.into_array::<0>();
+    }
+}

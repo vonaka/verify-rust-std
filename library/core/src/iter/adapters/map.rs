@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::fmt;
 use crate::iter::adapters::zip::try_get_unchecked;
 use crate::iter::adapters::{SourceIter, TrustedRandomAccess, TrustedRandomAccessNoCoerce};
@@ -129,6 +135,9 @@ where
     }
 
     #[inline]
+    #[requires(can_dereference(&mut self.iter as *mut _))]
+    #[requires(idx < self.len())]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> B
     where
         Self: TrustedRandomAccessNoCoerce,
@@ -199,6 +208,8 @@ where
     I: UncheckedIterator,
     F: FnMut(I::Item) -> B,
 {
+    #[requires(can_dereference(&mut self.iter as *mut _))]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn next_unchecked(&mut self) -> B {
         // SAFETY: `Map` is 1:1 with the inner iterator, so if the caller promised
         // that there's an element left, the inner iterator has one too.
@@ -238,4 +249,218 @@ where
 unsafe impl<I: InPlaceIterable, F> InPlaceIterable for Map<I, F> {
     const EXPAND_BY: Option<NonZero<usize>> = I::EXPAND_BY;
     const MERGE_BY: Option<NonZero<usize>> = I::MERGE_BY;
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Map::__iterator_get_unchecked)]
+    fn proof_for_map_iterator_get_unchecked() {
+        use core::iter::{ExactSizeIterator, TrustedRandomAccessNoCoerce};
+
+        // Create a simple iterator that implements TrustedRandomAccessNoCoerce
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl SimpleIter {
+            fn has_elements(&self) -> bool {
+                self.index < self.data.len()
+            }
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                let remaining = self.data.len() - self.index;
+                (remaining, Some(remaining))
+            }
+        }
+
+        impl ExactSizeIterator for SimpleIter {
+            fn len(&self) -> usize {
+                self.data.len() - self.index
+            }
+        }
+
+        // Implement TrustedRandomAccessNoCoerce for SimpleIter
+        unsafe impl TrustedRandomAccessNoCoerce for SimpleIter {
+            const MAY_HAVE_SIDE_EFFECT: bool = false;
+
+            unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item {
+                self.data[self.index + idx]
+            }
+        }
+
+        // Create a simple mapping function
+        fn double(x: u32) -> u64 {
+            (x as u64) * 2
+        }
+
+        // Create a SimpleIter instance
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: 0,
+        };
+
+        // Create a Map with our SimpleIter and mapping function
+        let mut map = Map { iter, f: double };
+
+        // Choose an index and ensure it's within bounds
+        let idx = if map.len() > 0 {
+            kani::any::<usize>() % map.len()
+        } else {
+            0
+        };
+
+        // Call the function only if we have elements
+        if map.len() > 0 {
+            unsafe {
+                let _ = map.__iterator_get_unchecked(idx);
+            }
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Map::next_unchecked)]
+    fn proof_for_map_next_unchecked() {
+        use core::iter::UncheckedIterator;
+
+        // Create a simple iterator that implements UncheckedIterator
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl SimpleIter {
+            fn has_elements(&self) -> bool {
+                self.index < self.data.len()
+            }
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                let remaining = self.data.len() - self.index;
+                (remaining, Some(remaining))
+            }
+        }
+
+        impl ExactSizeIterator for SimpleIter {
+            fn len(&self) -> usize {
+                self.data.len() - self.index
+            }
+
+            fn is_empty(&self) -> bool {
+                self.index >= self.data.len()
+            }
+        }
+
+        // Implement UncheckedIterator for SimpleIter
+        impl UncheckedIterator for SimpleIter {
+            unsafe fn next_unchecked(&mut self) -> Self::Item {
+                let item = self.data[self.index];
+                self.index += 1;
+                item
+            }
+        }
+
+        // Create a simple mapping function
+        fn double(x: u32) -> u64 {
+            (x as u64) * 2
+        }
+
+        // Create a SimpleIter instance with potentially consumed elements
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: kani::any::<usize>() % 5, // 0 to 4 (ensuring at least one element)
+        };
+
+        // Create a Map with our SimpleIter and mapping function
+        let mut map = Map { iter, f: double };
+
+        // Call the function only if we have elements
+        if !map.is_empty() {
+            unsafe {
+                let _ = map.next_unchecked();
+            }
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(Map::as_inner)]
+    fn proof_for_map_as_inner() {
+        use core::iter::SourceIter;
+
+        // Create a simple iterator type that implements SourceIter
+        struct SimpleIter {
+            data: [u32; 5],
+            index: usize,
+        }
+
+        impl Iterator for SimpleIter {
+            type Item = u32;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index < self.data.len() {
+                    let item = self.data[self.index];
+                    self.index += 1;
+                    Some(item)
+                } else {
+                    None
+                }
+            }
+        }
+
+        // Implement SourceIter for SimpleIter
+        unsafe impl SourceIter for SimpleIter {
+            type Source = [u32; 5];
+
+            unsafe fn as_inner(&mut self) -> &mut Self::Source {
+                &mut self.data
+            }
+        }
+
+        // Create a simple mapping function
+        fn double(x: u32) -> u64 {
+            (x as u64) * 2
+        }
+
+        // Create a SimpleIter instance
+        let mut iter = SimpleIter {
+            data: [1, 2, 3, 4, 5],
+            index: 0,
+        };
+
+        // Create a Map with our SimpleIter and mapping function
+        let mut map = Map { iter, f: double };
+
+        // Call the function
+        unsafe {
+            let _ = map.as_inner();
+        }
+    }
 }
