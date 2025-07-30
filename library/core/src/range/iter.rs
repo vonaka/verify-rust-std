@@ -110,6 +110,7 @@ impl<A: Step> Iterator for IterRange<A> {
     }
 
     #[inline]
+    #[requires(idx < self.size_hint().0)]
     #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item
     where
