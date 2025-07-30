@@ -1,5 +1,11 @@
 //! Defines the `IntoIter` owned iterator for arrays.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::intrinsics::transmute_unchecked;
 use crate::iter::{FusedIterator, TrustedLen, TrustedRandomAccessNoCoerce};
 use crate::mem::MaybeUninit;
@@ -138,6 +144,8 @@ impl<T, const N: usize> IntoIter<T, N> {
     /// ```
     #[unstable(feature = "array_into_iter_constructors", issue = "91583")]
     #[inline]
+    #[requires(initialized.start <= initialized.end)]
+    #[requires(initialized.end <= N)]
     pub const unsafe fn new_unchecked(
         buffer: [MaybeUninit<T>; N],
         initialized: Range<usize>,
@@ -373,5 +381,29 @@ where
 impl<T: fmt::Debug, const N: usize> fmt::Debug for IntoIter<T, N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.unsize().fmt(f)
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(IntoIter::new_unchecked)]
+    fn new_unchecked_contract() {
+        // Use a small constant size for the array
+        const N: usize = 5;
+
+        // Create a buffer of MaybeUninit<u32>
+        let buffer: [MaybeUninit<u32>; N] = [MaybeUninit::uninit(); N];
+
+        // Create a valid range that satisfies our preconditions:
+        // 1. initialized.start <= initialized.end
+        // 2. initialized.end <= N
+        let start = kani::any::<usize>() % (N + 1);
+        let end = start + kani::any::<usize>() % (N + 1 - start);
+
+        let initialized = start..end;
+
+        // Call the function with valid inputs that satisfy the preconditions
+        let _iter = unsafe { IntoIter::new_unchecked(buffer, initialized) };
     }
 }

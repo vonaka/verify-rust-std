@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::FusedIterator;
 use crate::mem::MaybeUninit;
 use crate::{fmt, ptr};
@@ -123,6 +129,7 @@ impl<T, const N: usize> Buffer<T, N> {
     }
 
     #[inline]
+    #[requires(self.start <= N)]
     fn as_array_ref(&self) -> &[T; N] {
         debug_assert!(self.start + N <= 2 * N);
 
@@ -131,6 +138,7 @@ impl<T, const N: usize> Buffer<T, N> {
     }
 
     #[inline]
+    #[requires(self.start <= N)]
     fn as_uninit_array_mut(&mut self) -> &mut MaybeUninit<[T; N]> {
         debug_assert!(self.start + N <= 2 * N);
 
@@ -142,6 +150,7 @@ impl<T, const N: usize> Buffer<T, N> {
     ///
     /// All the elements will be shifted to the front end when pushing reaches
     /// the back end.
+    #[requires(self.start <= N)]
     fn push(&mut self, next: T) {
         let buffer_mut_ptr = self.buffer_mut_ptr();
         debug_assert!(self.start + N <= 2 * N);
@@ -221,6 +230,7 @@ where
 }
 
 impl<T, const N: usize> Drop for Buffer<T, N> {
+    #[requires(self.start <= N)]
     fn drop(&mut self) {
         // SAFETY: our invariant guarantees that N elements starting from
         // `self.start` are initialized. We drop them here.

@@ -1,5 +1,14 @@
 //! [`CString`] and its related types.
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::borrow::Borrow;
 use core::ffi::{CStr, c_char};
 use core::num::NonZero;
@@ -394,6 +403,10 @@ impl CString {
     /// ```
     #[must_use = "call `drop(from_raw(ptr))` if you intend to drop the `CString`"]
     #[stable(feature = "cstr_memory", since = "1.4.0")]
+    // Note: This function has complex safety requirements that cannot be fully expressed as preconditions
+    #[requires(ptr != core::ptr::null_mut())]
+    #[requires(can_dereference(ptr.cast::<u8>()))]
+    #[requires(can_dereference(ptr as *const c_char))]
     pub unsafe fn from_raw(ptr: *mut c_char) -> CString {
         // SAFETY: This is called with a pointer that was obtained from a call
         // to `CString::into_raw` and the length has not been modified. As such,

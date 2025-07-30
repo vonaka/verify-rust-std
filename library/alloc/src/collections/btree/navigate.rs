@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::borrow::Borrow;
 use core::ops::RangeBounds;
 use core::{hint, ptr};
@@ -157,11 +166,13 @@ impl<BorrowType, K, V> LazyLeafRange<BorrowType, K, V> {
 
 impl<'a, K, V> LazyLeafRange<marker::Immut<'a>, K, V> {
     #[inline]
+    #[requires(self.front.is_some())]
     pub(super) unsafe fn next_unchecked(&mut self) -> (&'a K, &'a V) {
         unsafe { self.init_front().unwrap().next_unchecked() }
     }
 
     #[inline]
+    #[requires(self.back.is_some())]
     pub(super) unsafe fn next_back_unchecked(&mut self) -> (&'a K, &'a V) {
         unsafe { self.init_back().unwrap().next_back_unchecked() }
     }
@@ -169,11 +180,13 @@ impl<'a, K, V> LazyLeafRange<marker::Immut<'a>, K, V> {
 
 impl<'a, K, V> LazyLeafRange<marker::ValMut<'a>, K, V> {
     #[inline]
+    #[requires(self.front.is_some())]
     pub(super) unsafe fn next_unchecked(&mut self) -> (&'a K, &'a mut V) {
         unsafe { self.init_front().unwrap().next_unchecked() }
     }
 
     #[inline]
+    #[requires(self.back.is_some())]
     pub(super) unsafe fn next_back_unchecked(&mut self) -> (&'a K, &'a mut V) {
         unsafe { self.init_back().unwrap().next_back_unchecked() }
     }
@@ -190,6 +203,7 @@ impl<K, V> LazyLeafRange<marker::Dying, K, V> {
     }
 
     #[inline]
+    #[requires(self.front.is_some())]
     pub(super) unsafe fn deallocating_next_unchecked<A: Allocator + Clone>(
         &mut self,
         alloc: A,
@@ -200,6 +214,7 @@ impl<K, V> LazyLeafRange<marker::Dying, K, V> {
     }
 
     #[inline]
+    #[requires(self.back.is_some())]
     pub(super) unsafe fn deallocating_next_back_unchecked<A: Allocator + Clone>(
         &mut self,
         alloc: A,

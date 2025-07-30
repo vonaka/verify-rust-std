@@ -10,7 +10,16 @@
 //! [`Vec`]: crate::vec::Vec
 //! [`VecDeque`]: super::vec_deque::VecDeque
 
+#![feature(ub_checks)]
 #![stable(feature = "rust1", since = "1.0.0")]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
@@ -170,6 +179,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
     /// `node` must point to a valid node that was boxed and leaked using the list's allocator.
     /// This method takes ownership of the node, so the pointer should not be used again.
     #[inline]
+    #[requires(can_dereference(node.as_ptr()))]
     unsafe fn push_front_node(&mut self, node: NonNull<Node<T>>) {
         // This method takes care not to create mutable references to whole nodes,
         // to maintain validity of aliasing pointers into `element`.
@@ -215,6 +225,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
     /// `node` must point to a valid node that was boxed and leaked using the list's allocator.
     /// This method takes ownership of the node, so the pointer should not be used again.
     #[inline]
+    #[requires(can_dereference(node.as_ptr()))]
     unsafe fn push_back_node(&mut self, node: NonNull<Node<T>>) {
         // This method takes care not to create mutable references to whole nodes,
         // to maintain validity of aliasing pointers into `element`.
@@ -261,6 +272,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
     /// This method takes care not to create mutable references to `element`, to
     /// maintain validity of aliasing pointers.
     #[inline]
+    #[requires(can_dereference(node.as_ptr()))]
     unsafe fn unlink_node(&mut self, mut node: NonNull<Node<T>>) {
         let node = unsafe { node.as_mut() }; // this one is ours now, we can create an &mut.
 
@@ -284,6 +296,10 @@ impl<T, A: Allocator> LinkedList<T, A> {
     ///
     /// Warning: this will not check that the provided node belongs to the two existing lists.
     #[inline]
+    #[requires(can_dereference(splice_start.as_ptr()))]
+    #[requires(can_dereference(splice_end.as_ptr()))]
+    #[requires(existing_prev.map_or(true, |prev| can_dereference(prev.as_ptr())))]
+    #[requires(existing_next.map_or(true, |next| can_dereference(next.as_ptr())))]
     unsafe fn splice_nodes(
         &mut self,
         existing_prev: Option<NonNull<Node<T>>>,
@@ -318,6 +334,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
 
     /// Detaches all nodes from a linked list as a series of nodes.
     #[inline]
+    #[requires(self.head.is_some())]
     fn detach_all_nodes(mut self) -> Option<(NonNull<Node<T>>, NonNull<Node<T>>, usize)> {
         let head = self.head.take();
         let tail = self.tail.take();
@@ -334,6 +351,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
     }
 
     #[inline]
+    #[requires(at <= self.len)]
     unsafe fn split_off_before_node(
         &mut self,
         split_node: Option<NonNull<Node<T>>>,
@@ -377,6 +395,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
     }
 
     #[inline]
+    #[requires(at <= self.len)]
     unsafe fn split_off_after_node(
         &mut self,
         split_node: Option<NonNull<Node<T>>>,
@@ -2205,3 +2224,177 @@ unsafe impl<T: Send, A: Allocator + Send> Send for CursorMut<'_, T, A> {}
 
 #[unstable(feature = "linked_list_cursors", issue = "58533")]
 unsafe impl<T: Sync, A: Allocator + Sync> Sync for CursorMut<'_, T, A> {}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(LinkedList::push_front_node)]
+    fn proof_for_push_front_node() {
+        // Create a new linked list
+        let mut list: LinkedList<i32> = LinkedList::new();
+
+        // Create a new node with a value
+        let value = kani::any::<i32>();
+        let node_box = Box::new(Node::new(value));
+        let node_ptr = NonNull::from(Box::leak(node_box));
+
+        // Call the function with the valid node pointer
+        unsafe {
+            list.push_front_node(node_ptr);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(LinkedList::push_back_node)]
+    fn proof_for_push_back_node() {
+        // Create a new linked list
+        let mut list: LinkedList<i32> = LinkedList::new();
+
+        // Create a new node with a value
+        let value = kani::any::<i32>();
+        let node_box = Box::new(Node::new(value));
+        let node_ptr = NonNull::from(Box::leak(node_box));
+
+        // Call the function with the valid node pointer
+        unsafe {
+            list.push_back_node(node_ptr);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(LinkedList::unlink_node)]
+    fn proof_for_unlink_node() {
+        // Create a new linked list with one element
+        let mut list: LinkedList<i32> = LinkedList::new();
+
+        // Add a node to the list so we can unlink it
+        let value = kani::any::<i32>();
+        list.push_back(value);
+
+        // Get the node pointer from the list
+        let node_ptr = list.head.unwrap();
+
+        // Call the function with the valid node pointer
+        unsafe {
+            list.unlink_node(node_ptr);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(LinkedList::splice_nodes)]
+    fn proof_for_splice_nodes() {
+        // Create two linked lists
+        let mut target_list: LinkedList<i32> = LinkedList::new();
+        let mut source_list: LinkedList<i32> = LinkedList::new();
+
+        // Add some elements to both lists
+        target_list.push_back(1);
+        target_list.push_back(2);
+
+        source_list.push_back(10);
+        source_list.push_back(20);
+
+        // Get pointers to nodes in the target list
+        let existing_prev = target_list.head;
+        let existing_next = target_list.tail;
+
+        // Get pointers to the start and end of the source list
+        let splice_start = source_list.head.unwrap();
+        let splice_end = source_list.tail.unwrap();
+        let splice_length = source_list.len;
+
+        // Detach the nodes from source_list to avoid double-free
+        let _ = source_list.detach_all_nodes();
+
+        // Call the function with the valid node pointers
+        unsafe {
+            target_list.splice_nodes(
+                existing_prev,
+                existing_next,
+                splice_start,
+                splice_end,
+                splice_length,
+            );
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(LinkedList::split_off_after_node)]
+    fn proof_for_split_off_after_node() {
+        // Create a linked list with a few elements
+        let mut list: LinkedList<i32> = LinkedList::new();
+
+        // Add some elements to the list
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+
+        // Get the length of the list
+        let len = list.len;
+
+        // Choose a valid split point that satisfies at <= self.len
+        let at = if len > 0 {
+            kani::any::<usize>() % (len + 1)
+        } else {
+            0
+        };
+
+        // For simplicity, use None as the split_node
+        // This is valid for the contract which only requires at <= self.len
+        let split_node = None;
+
+        // Call the function with the valid parameters
+        unsafe {
+            let _second_part = list.split_off_after_node(split_node, at);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(LinkedList::split_off_before_node)]
+    fn proof_for_split_off_before_node() {
+        // Create a linked list with a few elements
+        let mut list: LinkedList<i32> = LinkedList::new();
+
+        // Add some elements to the list
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+
+        // Get the length of the list
+        let len = list.len;
+
+        // Choose a valid split point that satisfies at <= self.len
+        let at = if len > 0 {
+            kani::any::<usize>() % (len + 1)
+        } else {
+            0
+        };
+
+        // For simplicity, use None as the split_node
+        // This is valid for the contract which only requires at <= self.len
+        let split_node = None;
+
+        // Call the function with the valid parameters
+        unsafe {
+            let _first_part = list.split_off_before_node(split_node, at);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(LinkedList::detach_all_nodes)]
+    fn proof_for_detach_all_nodes() {
+        // Create a linked list with at least one element to satisfy the precondition
+        let mut list: LinkedList<i32> = LinkedList::new();
+
+        // Add an element to ensure self.head.is_some()
+        list.push_back(kani::any::<i32>());
+
+        // Optionally add more elements
+        if kani::any() {
+            list.push_back(kani::any::<i32>());
+        }
+
+        // Call the function
+        let _result = list.detach_all_nodes();
+    }
+}

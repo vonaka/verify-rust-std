@@ -5,6 +5,12 @@
 //! [^1]: Florian Loitsch. 2010. Printing floating-point numbers quickly and
 //!   accurately with integers. SIGPLAN Not. 45, 6 (June 2010), 233-243.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::MaybeUninit;
 use crate::num::diy_float::Fp;
 use crate::num::flt2dec::{Decoded, MAX_SIG_DIGITS, round_up};
@@ -162,6 +168,14 @@ pub fn max_pow10_no_more_than(x: u32) -> (u8, u32) {
 /// The shortest mode implementation for Grisu.
 ///
 /// It returns `None` when it would return an inexact representation otherwise.
+#[requires(d.mant > 0)]
+#[requires(d.minus > 0)]
+#[requires(d.plus > 0)]
+#[requires(d.mant.checked_add(d.plus).is_some())]
+#[requires(d.mant.checked_sub(d.minus).is_some())]
+#[requires(buf.len() >= MAX_SIG_DIGITS)]
+#[requires(d.mant + d.plus < (1 << 61))]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn format_shortest_opt<'a>(
     d: &Decoded,
     buf: &'a mut [MaybeUninit<u8>],
@@ -468,6 +482,10 @@ pub fn format_shortest<'a>(
 /// The exact and fixed mode implementation for Grisu.
 ///
 /// It returns `None` when it would return an inexact representation otherwise.
+#[requires(d.mant > 0)]
+#[requires(d.mant < (1 << 61))]
+#[requires(!buf.is_empty())]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub fn format_exact_opt<'a>(
     d: &Decoded,
     buf: &'a mut [MaybeUninit<u8>],
@@ -772,5 +790,49 @@ pub fn format_exact<'a>(
     match format_exact_opt(d, unsafe { &mut *(buf as *mut _) }, limit) {
         Some(ret) => ret,
         None => fallback(d, buf, limit),
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[cfg(kani)]
+    #[kani::proof_for_contract(format_shortest_opt)]
+    fn proof_format_shortest_opt() {
+        // Create a Decoded instance with arbitrary values
+        let d = Decoded {
+            mant: kani::any::<u64>(),
+            minus: kani::any::<u64>(),
+            plus: kani::any::<u64>(),
+            exp: kani::any::<i16>(),
+            inclusive: kani::any::<bool>(),
+        };
+
+        // Create a buffer with at least MAX_SIG_DIGITS elements
+        let mut buf = [MaybeUninit::<u8>::uninit(); MAX_SIG_DIGITS];
+
+        // Call the function with the prepared arguments
+        let _ = format_shortest_opt(&d, &mut buf);
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(format_exact_opt)]
+    fn proof_format_exact_opt() {
+        // Create a Decoded instance with arbitrary values
+        let d = Decoded {
+            mant: kani::any::<u64>(),
+            minus: kani::any::<u64>(),
+            plus: kani::any::<u64>(),
+            exp: kani::any::<i16>(),
+            inclusive: kani::any::<bool>(),
+        };
+
+        // Create a buffer
+        let mut buf = [MaybeUninit::<u8>::uninit(); 10]; // Using a small size for verification
+
+        // Create an arbitrary limit value
+        let limit = kani::any::<i16>();
+
+        // Call the function with the prepared arguments
+        let _ = format_exact_opt(&d, &mut buf, limit);
     }
 }

@@ -6,6 +6,12 @@
 //!
 //! Do not modify them without understanding the consequences for the format_args!() macro.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use super::*;
 use crate::hint::unreachable_unchecked;
 use crate::ptr::NonNull;
@@ -148,6 +154,7 @@ impl Argument<'_> {
     }
     #[inline]
     #[track_caller]
+    #[requires(*x <= u16::MAX as usize)]
     pub const fn from_usize(x: &usize) -> Argument<'_> {
         if *x > u16::MAX as usize {
             panic!("Formatting argument out of range");
@@ -161,6 +168,8 @@ impl Argument<'_> {
     ///
     /// This argument must actually be a placeholder argument.
     #[inline]
+    #[requires(matches!(self.ty, ArgumentType::Placeholder{..}))]
+    #[cfg_attr(kani, kani::modifies(f))]
     pub(super) unsafe fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.ty {
             // SAFETY:
@@ -228,6 +237,10 @@ impl<'a> Arguments<'a> {
     /// const _: () = if false { panic!("a {:1}", "a") };
     /// ```
     #[inline]
+    #[requires(pieces.len() >= fmt.len())]
+    #[requires(fmt.iter().all(|p| p.position < args.len()))]
+    #[requires(fmt.iter().all(|p| match p.precision { Count::Param(i) => i < args.len(), _ => true }))]
+    #[requires(fmt.iter().all(|p| match p.width { Count::Param(i) => i < args.len(), _ => true }))]
     pub unsafe fn new_v1_formatted(
         pieces: &'a [&'static str],
         args: &'a [rt::Argument<'a>],
