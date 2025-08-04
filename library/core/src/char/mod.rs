@@ -24,6 +24,8 @@ mod convert;
 mod decode;
 mod methods;
 
+use safety::requires;
+
 // stable re-exports
 #[rustfmt::skip]
 #[stable(feature = "try_from", since = "1.34.0")]
@@ -40,8 +42,7 @@ pub use self::methods::encode_utf16_raw; // perma-unstable
 #[unstable(feature = "char_internals", reason = "exposed only for libstd", issue = "none")]
 pub use self::methods::{encode_utf8_raw, encode_utf8_raw_unchecked}; // perma-unstable
 
-use safety::requires;
-
+#[rustfmt::skip]
 use crate::ascii;
 pub(crate) use self::methods::EscapeDebugExtArgs;
 use crate::error::Error;
