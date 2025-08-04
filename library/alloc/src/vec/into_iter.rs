@@ -1,16 +1,9 @@
-#![feature(ub_checks)]
-use safety::{ensures,requires};
-#[cfg(kani)]
-#[unstable(feature="kani", issue="none")]
-use core::kani;
-#[allow(unused_imports)]
-#[unstable(feature = "ub_checks", issue = "none")]
-use core::ub_checks::*;
-
 use core::iter::{
     FusedIterator, InPlaceIterable, SourceIter, TrustedFused, TrustedLen,
     TrustedRandomAccessNoCoerce,
 };
+#[cfg(kani)]
+use core::kani;
 use core::marker::PhantomData;
 use core::mem::{ManuallyDrop, MaybeUninit, SizedTypeProperties};
 use core::num::NonZero;
@@ -19,6 +12,8 @@ use core::ops::Deref;
 use core::ptr::{self, NonNull};
 use core::slice::{self};
 use core::{array, fmt};
+
+use safety::requires;
 
 #[cfg(not(no_global_oom_handling))]
 use super::AsVecIntoIter;
