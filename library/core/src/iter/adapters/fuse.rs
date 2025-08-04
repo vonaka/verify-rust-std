@@ -115,6 +115,7 @@ where
     }
 
     #[inline]
+    #[requires(self.iter.is_some() && idx < self.iter.as_ref().unwrap().size_hint().0)]
     #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> Self::Item
     where

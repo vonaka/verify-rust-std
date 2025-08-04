@@ -1,5 +1,8 @@
 //! Iterators for `str` methods.
 
+use safety::requires;
+#[cfg(kani)]
+use crate::kani;
 use super::pattern::{DoubleEndedSearcher, Pattern, ReverseSearcher, Searcher};
 use super::validations::{next_code_point, next_code_point_reverse};
 use super::{
@@ -356,6 +359,7 @@ impl Iterator for Bytes<'_> {
     }
 
     #[inline]
+    #[requires(idx < self.0.len())]
     unsafe fn __iterator_get_unchecked(&mut self, idx: usize) -> u8 {
         // SAFETY: the caller must uphold the safety contract
         // for `Iterator::__iterator_get_unchecked`.
