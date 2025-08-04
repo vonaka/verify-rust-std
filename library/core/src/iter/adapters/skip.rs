@@ -1,8 +1,4 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use crate::intrinsics::unlikely;
 use crate::iter::adapters::SourceIter;
@@ -11,6 +7,8 @@ use crate::iter::{
     FusedIterator, InPlaceIterable, TrustedFused, TrustedLen, TrustedRandomAccess,
     TrustedRandomAccessNoCoerce,
 };
+#[cfg(kani)]
+use crate::kani;
 use crate::num::NonZero;
 use crate::ops::{ControlFlow, Try};
 

@@ -1,8 +1,7 @@
 //! Iterators for `str` methods.
 
 use safety::requires;
-#[cfg(kani)]
-use crate::kani;
+
 use super::pattern::{DoubleEndedSearcher, Pattern, ReverseSearcher, Searcher};
 use super::validations::{next_code_point, next_code_point_reverse};
 use super::{
@@ -14,6 +13,8 @@ use crate::iter::{
     Chain, Copied, Filter, FlatMap, Flatten, FusedIterator, Map, TrustedLen, TrustedRandomAccess,
     TrustedRandomAccessNoCoerce,
 };
+#[cfg(kani)]
+use crate::kani;
 use crate::num::NonZero;
 use crate::ops::Try;
 use crate::slice::{self, Split as SliceSplit};

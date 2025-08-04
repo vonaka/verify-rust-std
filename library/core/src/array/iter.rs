@@ -1,5 +1,7 @@
 //! Defines the `IntoIter` owned iterator for arrays.
 
+use safety::requires;
+
 use crate::intrinsics::transmute_unchecked;
 use crate::iter::{FusedIterator, TrustedLen, TrustedRandomAccessNoCoerce};
 #[cfg(kani)]
@@ -8,7 +10,6 @@ use crate::mem::MaybeUninit;
 use crate::num::NonZero;
 use crate::ops::{IndexRange, Range, Try};
 use crate::{fmt, ptr};
-use safety::requires;
 
 mod iter_inner;
 

@@ -1,12 +1,10 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use crate::iter::adapters::zip::try_get_unchecked;
 use crate::iter::adapters::{SourceIter, TrustedRandomAccess, TrustedRandomAccessNoCoerce};
 use crate::iter::{FusedIterator, InPlaceIterable, TrustedFused, TrustedLen};
+#[cfg(kani)]
+use crate::kani;
 use crate::num::NonZero;
 use crate::ops::Try;
 

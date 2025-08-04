@@ -40,6 +40,8 @@ pub use self::methods::encode_utf16_raw; // perma-unstable
 #[unstable(feature = "char_internals", reason = "exposed only for libstd", issue = "none")]
 pub use self::methods::{encode_utf8_raw, encode_utf8_raw_unchecked}; // perma-unstable
 
+use safety::requires;
+
 use crate::ascii;
 pub(crate) use self::methods::EscapeDebugExtArgs;
 use crate::error::Error;
@@ -49,7 +51,6 @@ use crate::iter::{FusedIterator, TrustedLen, TrustedRandomAccess, TrustedRandomA
 #[cfg(kani)]
 use crate::kani;
 use crate::num::NonZero;
-use safety::requires;
 
 // UTF-8 ranges and tags for encoding characters
 const TAG_CONT: u8 = 0b1000_0000;

@@ -1,14 +1,12 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use crate::cmp;
 use crate::fmt::{self, Debug};
 use crate::iter::{
     FusedIterator, InPlaceIterable, SourceIter, TrustedFused, TrustedLen, UncheckedIterator,
 };
+#[cfg(kani)]
+use crate::kani;
 use crate::num::NonZero;
 
 /// An iterator that iterates two other iterators simultaneously.

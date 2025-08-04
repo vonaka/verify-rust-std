@@ -1,3 +1,5 @@
+use safety::requires;
+
 use crate::iter::{
     FusedIterator, Step, TrustedLen, TrustedRandomAccess, TrustedRandomAccessNoCoerce, TrustedStep,
 };
@@ -5,7 +7,6 @@ use crate::iter::{
 use crate::kani;
 use crate::num::NonZero;
 use crate::range::{Range, RangeFrom, RangeInclusive, legacy};
-use safety::requires;
 
 /// By-value [`Range`] iterator.
 #[unstable(feature = "new_range_api", issue = "125687")]

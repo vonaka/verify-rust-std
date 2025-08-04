@@ -1,9 +1,10 @@
 use safety::requires;
-#[cfg(kani)]
-use crate::kani;
+
 use crate::iter::adapters::zip::try_get_unchecked;
 use crate::iter::adapters::{SourceIter, TrustedRandomAccess, TrustedRandomAccessNoCoerce};
 use crate::iter::{FusedIterator, InPlaceIterable, TrustedLen};
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::{MaybeUninit, SizedTypeProperties};
 use crate::num::NonZero;
 use crate::ops::Try;

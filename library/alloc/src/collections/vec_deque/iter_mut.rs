@@ -4,6 +4,7 @@ use core::kani;
 use core::num::NonZero;
 use core::ops::Try;
 use core::{fmt, mem, slice};
+
 use safety::requires;
 
 /// A mutable iterator over the elements of a `VecDeque`.

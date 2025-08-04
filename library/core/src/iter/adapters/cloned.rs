@@ -1,14 +1,12 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
-
 use core::num::NonZero;
+
+use safety::requires;
 
 use crate::iter::adapters::zip::try_get_unchecked;
 use crate::iter::adapters::{SourceIter, TrustedRandomAccess, TrustedRandomAccessNoCoerce};
 use crate::iter::{FusedIterator, InPlaceIterable, TrustedLen, UncheckedIterator};
+#[cfg(kani)]
+use crate::kani;
 use crate::ops::Try;
 
 /// An iterator that clones the elements of an underlying iterator.

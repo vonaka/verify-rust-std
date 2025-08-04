@@ -1,8 +1,4 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use crate::intrinsics;
 use crate::iter::adapters::SourceIter;
@@ -10,6 +6,8 @@ use crate::iter::adapters::zip::try_get_unchecked;
 use crate::iter::{
     FusedIterator, TrustedFused, TrustedLen, TrustedRandomAccess, TrustedRandomAccessNoCoerce,
 };
+#[cfg(kani)]
+use crate::kani;
 use crate::ops::Try;
 
 /// An iterator that yields `None` forever after the underlying iterator

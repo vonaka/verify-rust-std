@@ -2,7 +2,9 @@
 
 #[macro_use] // import iterator! and forward_iterator!
 mod macros;
+
 use safety::requires;
+
 use super::{from_raw_parts, from_raw_parts_mut};
 use crate::hint::assert_unchecked;
 use crate::iter::{

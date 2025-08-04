@@ -1,8 +1,4 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use super::super::{
     ArrayChunks, ByRefSized, Chain, Cloned, Copied, Cycle, Enumerate, Filter, FilterMap, FlatMap,
@@ -12,6 +8,8 @@ use super::super::{
 };
 use crate::array;
 use crate::cmp::{self, Ordering};
+#[cfg(kani)]
+use crate::kani;
 use crate::num::NonZero;
 use crate::ops::{ChangeOutputType, ControlFlow, FromResidual, Residual, Try};
 
