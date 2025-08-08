@@ -1,11 +1,11 @@
-use safety::requires;
+use crate::iter::{FusedIterator, TrustedLen};
 #[cfg(kani)]
 use crate::kani;
-
-use crate::iter::{FusedIterator, TrustedLen};
 use crate::num::NonZero;
 use crate::ops::{NeverShortCircuit, Try};
 use crate::ub_checks;
+
+use safety::requires;
 
 /// Like a `Range<usize>`, but with a safety invariant that `start <= end`.
 ///

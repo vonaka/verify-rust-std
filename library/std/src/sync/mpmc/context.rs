@@ -1,9 +1,8 @@
 //! Thread-local channel context.
 
 #[cfg(kani)]
-#[unstable(feature="kani", issue="none")]
+#[unstable(feature = "kani", issue="none")]
 use core::kani;
-use safety::requires;
 
 use super::select::Selected;
 use super::waker::current_thread_id;
@@ -13,6 +12,8 @@ use crate::sync::Arc;
 use crate::sync::atomic::{Atomic, AtomicPtr, AtomicUsize, Ordering};
 use crate::thread::{self, Thread};
 use crate::time::Instant;
+
+use safety::requires;
 
 /// Thread-local context.
 #[derive(Debug, Clone)]

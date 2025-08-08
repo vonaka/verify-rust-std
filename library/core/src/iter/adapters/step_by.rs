@@ -1,11 +1,11 @@
-use safety::requires;
-#[cfg(kani)]
-use crate::kani;
-
 use crate::intrinsics;
 use crate::iter::{TrustedLen, TrustedRandomAccess, from_fn};
+#[cfg(kani)]
+use crate::kani;
 use crate::num::NonZero;
 use crate::ops::{Range, Try};
+
+use safety::requires;
 
 /// An iterator for stepping iterators by a custom amount.
 ///
