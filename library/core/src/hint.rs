@@ -4,12 +4,12 @@
 //!
 //! Hints may be compile time or runtime.
 
+use safety::requires;
+
 #[cfg(kani)]
 use crate::kani;
 use crate::mem::MaybeUninit;
 use crate::{intrinsics, ub_checks};
-
-use safety::requires;
 
 /// Informs the compiler that the site which is calling this function is not
 /// reachable, possibly enabling further optimizations.
