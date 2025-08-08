@@ -4,11 +4,9 @@
 //!
 //! Hints may be compile time or runtime.
 
-use safety::{ensures,requires};
+use safety::requires;
 #[cfg(kani)]
 use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 
 use crate::mem::MaybeUninit;
 use crate::{intrinsics, ub_checks};
