@@ -1,5 +1,14 @@
 //! Streaming SIMD Extensions 3 (SSE3)
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::core_arch::{simd::*, x86::*};
 use crate::intrinsics::simd::*;
 
@@ -99,6 +108,7 @@ pub fn _mm_hsub_ps(a: __m128, b: __m128) -> __m128 {
 #[target_feature(enable = "sse3")]
 #[cfg_attr(test, assert_instr(lddqu))]
 #[stable(feature = "simd_x86", since = "1.27.0")]
+#[requires(can_dereference(mem_addr))]
 pub unsafe fn _mm_lddqu_si128(mem_addr: *const __m128i) -> __m128i {
     transmute(lddqu(mem_addr as *const _))
 }
@@ -258,5 +268,39 @@ mod tests {
         let d = -5.0;
         let r = _mm_loaddup_pd(&d);
         assert_eq_m128d(r, _mm_setr_pd(d, d));
+    }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(unsafe fn _mm_lddqu_si128(mem_addr: *const __m128i) -> __m128i)]
+    fn proof_mm_lddqu_si128() {
+        // Create a valid __m128i value
+        let mut value = [0i32; 4];
+
+        // Get a pointer to the value
+        let ptr: *const __m128i = value.as_ptr() as *const __m128i;
+
+        // Call the function with the valid pointer
+        unsafe {
+            let _result = _mm_lddqu_si128(ptr);
+        }
+    }
+
+    #[cfg(kani)]
+    #[kani::proof_for_contract(unsafe fn _mm_loadddup_pd(mem_addr: *const f64) -> __m128d)]
+    fn proof_mm_loadddup_pd() {
+        // Create a valid f64 value
+        let value: f64 = 0.0;
+
+        // Get a pointer to the value
+        let ptr: *const f64 = &value;
+
+        // Call the function with the valid pointer
+        unsafe {
+            let _result = _mm_loadddup_pd(ptr);
+        }
     }
 }
