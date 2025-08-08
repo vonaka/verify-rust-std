@@ -1,14 +1,5 @@
 //! Streaming SIMD Extensions 4.1 (SSE4.1)
 
-#![feature(ub_checks)]
-use safety::{ensures,requires};
-#[cfg(kani)]
-#[unstable(feature="kani", issue="none")]
-use core::kani;
-#[allow(unused_imports)]
-#[unstable(feature = "ub_checks", issue = "none")]
-use core::ub_checks::*;
-
 use crate::core_arch::{simd::*, x86::*};
 use crate::intrinsics::simd::*;
 
@@ -1141,8 +1132,6 @@ pub fn _mm_test_mix_ones_zeros(a: __m128i, mask: __m128i) -> i32 {
 #[target_feature(enable = "sse4.1")]
 #[cfg_attr(test, assert_instr(movntdqa))]
 #[stable(feature = "simd_x86_updates", since = "1.82.0")]
-#[requires(can_dereference(mem_addr))]
-#[requires(mem_addr as usize % 16 == 0)]
 pub unsafe fn _mm_stream_load_si128(mem_addr: *const __m128i) -> __m128i {
     let dst: __m128i;
     crate::arch::asm!(
@@ -1948,28 +1937,5 @@ mod tests {
         let a = _mm_set_epi64x(5, 6);
         let r = _mm_stream_load_si128(core::ptr::addr_of!(a) as *const _);
         assert_eq_m128i(a, r);
-    }
-}
-#[cfg(kani)]
-mod verify {
-    use super::*;
-    #[cfg(kani)]
-    #[repr(align(16))]
-    struct Aligned16Bytes {
-        data: [u8; 16],
-    }
-
-    #[cfg(kani)]
-    #[kani::proof_for_contract(_mm_stream_load_si128)]
-    fn verify_mm_stream_load_si128() {
-        // Allocate memory for __m128i (16 bytes) with proper alignment
-        let mut aligned_data = Aligned16Bytes { data: [0u8; 16] };
-        let ptr = &aligned_data.data as *const _ as *const __m128i;
-
-        // Call the function with our properly aligned pointer
-        unsafe {
-            let _result = _mm_stream_load_si128(ptr);
-            // No postconditions to verify
-        }
     }
 }
