@@ -34,7 +34,7 @@ pub struct StepBy<I> {
 
 impl<I> Invariant for StepBy<I> {
     fn is_safe(&self) -> bool {
-        step_minus_one < usize::MAX
+        self.step_minus_one < usize::MAX
     }
 }
 
