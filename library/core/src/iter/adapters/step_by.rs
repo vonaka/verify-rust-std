@@ -32,6 +32,7 @@ pub struct StepBy<I> {
     first_take: bool,
 }
 
+#[unstable(feature = "ub_checks", issue = "none")]
 impl<I> Invariant for StepBy<I> {
     fn is_safe(&self) -> bool {
         self.step_minus_one < usize::MAX
