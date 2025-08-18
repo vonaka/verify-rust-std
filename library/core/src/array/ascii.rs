@@ -1,10 +1,8 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use crate::ascii;
+#[cfg(kani)]
+use crate::kani;
 
 impl<const N: usize> [u8; N] {
     /// Converts this array of bytes into an array of ASCII characters,

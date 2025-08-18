@@ -1,10 +1,8 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use crate::iter::TrustedLen;
+#[cfg(kani)]
+use crate::kani;
 
 /// [`TrustedLen`] cannot have methods, so this allows augmenting it.
 ///

@@ -1,10 +1,8 @@
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use crate::iter::{TrustedLen, UncheckedIterator};
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::ManuallyDrop;
 use crate::ptr::drop_in_place;
 use crate::slice;

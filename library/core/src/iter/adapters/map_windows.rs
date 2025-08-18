@@ -1,8 +1,7 @@
-use crate::ub_checks::Invariant;
-
 use crate::iter::FusedIterator;
 use crate::mem::MaybeUninit;
 use crate::{fmt, ptr};
+use crate::ub_checks::Invariant;
 
 /// An iterator over the mapped windows of another iterator.
 ///

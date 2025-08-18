@@ -6,17 +6,14 @@
 //!
 //! Do not modify them without understanding the consequences for the format_args!() macro.
 
-use crate::ub_checks::Invariant;
-
-use safety::{ensures,requires};
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
+use safety::requires;
 
 use super::*;
 use crate::hint::unreachable_unchecked;
+#[cfg(kani)]
+use crate::kani;
 use crate::ptr::NonNull;
+use crate::ub_checks::Invariant;
 
 #[lang = "format_placeholder"]
 #[derive(Copy, Clone)]
