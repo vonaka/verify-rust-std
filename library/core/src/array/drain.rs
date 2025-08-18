@@ -1,3 +1,9 @@
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::{TrustedLen, UncheckedIterator};
 use crate::mem::ManuallyDrop;
 use crate::ptr::drop_in_place;
@@ -66,6 +72,7 @@ impl<T> ExactSizeIterator for Drain<'_, T> {
 unsafe impl<T> TrustedLen for Drain<'_, T> {}
 
 impl<T> UncheckedIterator for Drain<'_, T> {
+    #[requires(self.0.len() > 0)]
     unsafe fn next_unchecked(&mut self) -> T {
         // SAFETY: `Drain` is 1:1 with the inner iterator, so if the caller promised
         // that there's an element left, the inner iterator has one too.

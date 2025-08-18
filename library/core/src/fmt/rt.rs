@@ -6,6 +6,14 @@
 //!
 //! Do not modify them without understanding the consequences for the format_args!() macro.
 
+use crate::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use super::*;
 use crate::hint::unreachable_unchecked;
 use crate::ptr::NonNull;
@@ -161,6 +169,7 @@ impl Argument<'_> {
     ///
     /// This argument must actually be a placeholder argument.
     #[inline]
+    #[requires(matches!(self.ty, ArgumentType::Placeholder { .. }))]
     pub(super) unsafe fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.ty {
             // SAFETY:
@@ -228,11 +237,22 @@ impl<'a> Arguments<'a> {
     /// const _: () = if false { panic!("a {:1}", "a") };
     /// ```
     #[inline]
+    #[requires(pieces.len() >= fmt.len())]
     pub unsafe fn new_v1_formatted(
         pieces: &'a [&'static str],
         args: &'a [rt::Argument<'a>],
         fmt: &'a [rt::Placeholder],
     ) -> Arguments<'a> {
         Arguments { pieces, fmt: Some(fmt), args }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<'a> Invariant for ArgumentType<'a> {
+    fn is_safe(&self) -> bool {
+        match self {
+            ArgumentType::Placeholder { value, formatter, .. } => true,
+            ArgumentType::Count(_) => true
+        }
     }
 }
