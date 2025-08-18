@@ -5,16 +5,16 @@
 // Based on https://github.com/voultapher/tiny-sort-rs.
 
 #![feature(ub_checks)]
-use safety::{ensures,requires};
+use alloc::alloc::{Layout, alloc, dealloc};
+use safety::requires;
+use std::ptr;
+
 #[cfg(kani)]
-#[unstable(feature="kani", issue="none")]
+#[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-
-use alloc::alloc::{Layout, alloc, dealloc};
-use std::ptr;
 
 /// Sort `v` preserving initial order of equal elements.
 ///
