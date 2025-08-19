@@ -6,7 +6,6 @@
 
 #![feature(ub_checks)]
 use alloc::alloc::{Layout, alloc, dealloc};
-
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
