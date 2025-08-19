@@ -249,7 +249,7 @@ impl<'a> Invariant for ArgumentType<'a> {
     fn is_safe(&self) -> bool {
         match self {
             ArgumentType::Placeholder { value, formatter, .. } => true,
-            ArgumentType::Count(_) => true
+            ArgumentType::Count(_) => true,
         }
     }
 }

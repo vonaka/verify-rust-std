@@ -6,8 +6,6 @@
 
 #![feature(ub_checks)]
 use alloc::alloc::{Layout, alloc, dealloc};
-use safety::requires;
-use std::ptr;
 
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
@@ -15,6 +13,9 @@ use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use std::ptr;
+
+use safety::requires;
 
 /// Sort `v` preserving initial order of equal elements.
 ///
