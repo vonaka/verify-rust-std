@@ -197,7 +197,6 @@ impl<T> BufGuard<T> {
 }
 
 impl<T> Drop for BufGuard<T> {
-    #[requires(size_of::<T>() > 0)]
     fn drop(&mut self) {
         // SAFETY: We checked that T is not a ZST.
         unsafe {
