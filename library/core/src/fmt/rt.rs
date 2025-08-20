@@ -243,13 +243,3 @@ impl<'a> Arguments<'a> {
         Arguments { pieces, fmt: Some(fmt), args }
     }
 }
-
-#[unstable(feature = "ub_checks", issue = "none")]
-impl<'a> Invariant for ArgumentType<'a> {
-    fn is_safe(&self) -> bool {
-        match self {
-            ArgumentType::Placeholder { value, formatter, .. } => true,
-            ArgumentType::Count(_) => true,
-        }
-    }
-}
