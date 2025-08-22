@@ -7,7 +7,16 @@
 //! * Executing a panic up to doing the actual implementation
 //! * Shims around "try"
 
+#![feature(ub_checks)]
 #![deny(unsafe_op_in_unsafe_fn)]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use core::panic::{Location, PanicPayload};
 
@@ -563,6 +572,8 @@ pub unsafe fn catch_unwind<R, F: FnOnce() -> R>(f: F) -> Result<R, Box<dyn Any +
     // non-cold function, though, as of the writing of this comment).
     #[cold]
     #[optimize(size)]
+    #[requires(can_dereference(payload))]
+    #[cfg_attr(kani, kani::modifies(payload))]
     unsafe fn cleanup(payload: *mut u8) -> Box<dyn Any + Send + 'static> {
         // SAFETY: The whole unsafe block hinges on a correct implementation of
         // the panic handler `__rust_panic_cleanup`. As such we can only

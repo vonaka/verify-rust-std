@@ -4,6 +4,14 @@
 
 #![stable(feature = "core_array", since = "1.35.0")]
 
+use crate::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::borrow::{Borrow, BorrowMut};
 use crate::cmp::Ordering;
 use crate::convert::Infallible;
@@ -917,6 +925,8 @@ impl<T> Guard<'_, T> {
     ///
     /// No more than N elements must be initialized.
     #[inline]
+    #[requires(self.initialized < self.array_mut.len())]
+    #[cfg_attr(kani, kani::modifies(self.array_mut))]
     pub(crate) unsafe fn push_unchecked(&mut self, item: T) {
         // SAFETY: If `initialized` was correct before and the caller does not
         // invoke this method more than N times then writes will be in-bounds
@@ -996,4 +1006,11 @@ fn iter_next_chunk_erased<T>(
 
     mem::forget(guard);
     Ok(())
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<'a, T> Invariant for Guard<'a, T> {
+    fn is_safe(&self) -> bool {
+        self.initialized <= self.array_mut.len()
+    }
 }

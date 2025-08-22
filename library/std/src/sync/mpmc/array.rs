@@ -8,6 +8,15 @@
 //!   - <http://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue>
 //!   - <https://docs.google.com/document/d/1yIAYmbvL3JxOKOjuCyon7JhW4cSv1wy5hC0ApeGMV9s/pub>
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use super::context::Context;
 use super::error::*;
 use super::select::{Operation, Selected, Token};
@@ -193,6 +202,9 @@ impl<T> Channel<T> {
     }
 
     /// Writes a message into the channel.
+    #[requires(can_dereference(token.array.slot as *const Slot<T>))]
+    #[requires(token.array.stamp < self.cap)]
+    #[cfg_attr(kani, kani::modifies(token.array.slot))]
     pub(crate) unsafe fn write(&self, token: &mut Token, msg: T) -> Result<(), T> {
         // If there is no slot, the channel is disconnected.
         if token.array.slot.is_null() {
@@ -285,6 +297,9 @@ impl<T> Channel<T> {
     }
 
     /// Reads a message from the channel.
+    #[requires(can_dereference(token.array.slot as *const Slot<T>))]
+    #[requires(token.array.stamp < self.cap)]
+    #[cfg_attr(kani, kani::modifies(token.array.slot))]
     pub(crate) unsafe fn read(&self, token: &mut Token) -> Result<T, ()> {
         if token.array.slot.is_null() {
             // The channel is disconnected.
@@ -467,6 +482,7 @@ impl<T> Channel<T> {
     /// May only be called once upon dropping the last receiver. The
     /// destruction of all other receivers must have been observed with acquire
     /// ordering or stronger.
+    #[requires(can_dereference(self as *const Channel<T>))]
     pub(crate) unsafe fn disconnect_receivers(&self) -> bool {
         let tail = self.tail.fetch_or(self.mark_bit, Ordering::SeqCst);
         let disconnected = if tail & self.mark_bit == 0 {
@@ -492,6 +508,8 @@ impl<T> Channel<T> {
     /// This method must only be called when dropping the last receiver. The
     /// destruction of all other receivers must have been observed with acquire
     /// ordering or stronger.
+    #[requires(self.is_disconnected())]
+    #[requires(can_dereference(self.buffer.as_ptr()))]
     unsafe fn discard_all_messages(&self, tail: usize) {
         debug_assert!(self.is_disconnected());
 

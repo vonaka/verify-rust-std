@@ -1,3 +1,14 @@
+#![feature(ub_checks)]
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::ptr;
 
 use super::{IsZero, Vec};
@@ -34,6 +45,7 @@ impl<T: Clone + IsZero> SpecFromElem for T {
 impl SpecFromElem for i8 {
     #[inline]
     #[track_caller]
+    #[requires(n <= isize::MAX as usize)]
     fn from_elem<A: Allocator>(elem: i8, n: usize, alloc: A) -> Vec<i8, A> {
         if elem == 0 {
             return Vec { buf: RawVec::with_capacity_zeroed_in(n, alloc), len: n };
@@ -50,6 +62,7 @@ impl SpecFromElem for i8 {
 impl SpecFromElem for u8 {
     #[inline]
     #[track_caller]
+    #[requires(n <= isize::MAX as usize)]
     fn from_elem<A: Allocator>(elem: u8, n: usize, alloc: A) -> Vec<u8, A> {
         if elem == 0 {
             return Vec { buf: RawVec::with_capacity_zeroed_in(n, alloc), len: n };
@@ -67,6 +80,7 @@ impl SpecFromElem for u8 {
 // but the latter cannot be detected currently
 impl SpecFromElem for () {
     #[inline]
+    #[requires(n <= isize::MAX as usize)]
     fn from_elem<A: Allocator>(_elem: (), n: usize, alloc: A) -> Vec<(), A> {
         let mut v = Vec::with_capacity_in(n, alloc);
         // SAFETY: the capacity has just been set to `n`
@@ -75,5 +89,12 @@ impl SpecFromElem for () {
             v.set_len(n);
         }
         v
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T, A: Allocator> Invariant for Vec<T, A> {
+    fn is_safe(&self) -> bool {
+        self.len <= self.buf.capacity()
     }
 }

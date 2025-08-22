@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::any::Any;
 use core::error::Error;
 use core::mem;
@@ -275,6 +284,7 @@ impl<T, const N: usize> From<[T; N]> for Box<[T]> {
 /// # Safety
 ///
 /// `boxed_slice.len()` must be exactly `N`.
+#[requires(boxed_slice.len() == N)]
 unsafe fn boxed_slice_as_array_unchecked<T, A: Allocator, const N: usize>(
     boxed_slice: Box<[T], A>,
 ) -> Box<[T; N], A> {
@@ -391,6 +401,7 @@ impl<A: Allocator> Box<dyn Any, A> {
     /// [`downcast`]: Self::downcast
     #[inline]
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
+    #[requires(self.is::<T>())]
     pub unsafe fn downcast_unchecked<T: Any>(self) -> Box<T, A> {
         debug_assert!(self.is::<T>());
         unsafe {
@@ -450,6 +461,7 @@ impl<A: Allocator> Box<dyn Any + Send, A> {
     /// [`downcast`]: Self::downcast
     #[inline]
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
+    #[requires(self.is::<T>())]
     pub unsafe fn downcast_unchecked<T: Any>(self) -> Box<T, A> {
         debug_assert!(self.is::<T>());
         unsafe {
@@ -509,6 +521,7 @@ impl<A: Allocator> Box<dyn Any + Send + Sync, A> {
     /// [`downcast`]: Self::downcast
     #[inline]
     #[unstable(feature = "downcast_unchecked", issue = "90850")]
+    #[requires(self.is::<T>())]
     pub unsafe fn downcast_unchecked<T: Any>(self) -> Box<T, A> {
         debug_assert!(self.is::<T>());
         unsafe {

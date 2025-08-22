@@ -1,5 +1,11 @@
 //! Integer and floating-point number formatting
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::fmt::NumBuffer;
 use crate::mem::MaybeUninit;
 use crate::num::fmt as numfmt;
@@ -196,6 +202,7 @@ static DEC_DIGITS_LUT: &[u8; 200] = b"\
 ///
 /// `buf` content starting from `offset` index MUST BE initialized and MUST BE ascii
 /// characters.
+#[requires(offset < buf.len())]
 unsafe fn slice_buffer_to_str(buf: &[MaybeUninit<u8>], offset: usize) -> &str {
     // SAFETY: `offset` is always included between 0 and `buf`'s length.
     let written = unsafe { buf.get_unchecked(offset..) };

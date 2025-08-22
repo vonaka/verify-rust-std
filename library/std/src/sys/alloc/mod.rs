@@ -1,4 +1,13 @@
+#![feature(ub_checks)]
 #![forbid(unsafe_op_in_unsafe_fn)]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::alloc::{GlobalAlloc, Layout, System};
 use crate::ptr;
@@ -47,6 +56,13 @@ const MIN_ALIGN: usize = if cfg!(any(
 };
 
 #[allow(dead_code)]
+#[requires(old_layout.size() > 0)]
+#[requires(can_dereference(ptr) && can_read_unaligned(ptr.add(old_layout.size() - 1)))]
+#[requires(new_size > 0)]
+#[requires(old_layout.size() <= isize::MAX as usize)]
+#[requires(new_size <= isize::MAX as usize)]
+#[requires(new_size.checked_mul(old_layout.align()).is_some())]
+#[cfg_attr(kani, kani::modifies(ptr))]
 unsafe fn realloc_fallback(
     alloc: &System,
     ptr: *mut u8,

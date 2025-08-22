@@ -1,5 +1,16 @@
 //! This module contains constructs to work with 16-bit characters (UCS-2 or UTF-16)
+#![feature(ub_checks)]
 #![allow(dead_code)]
+
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::marker::PhantomData;
 use crate::num::NonZero;
@@ -19,6 +30,7 @@ impl WStrUnits<'_> {
     ///
     /// SAFETY: `lpwstr` must point to a null-terminated wide string that lives
     /// at least as long as the lifetime of this struct.
+    #[requires(lpwstr as usize != 0)]
     pub unsafe fn new(lpwstr: *const u16) -> Option<Self> {
         Some(Self { lpwstr: NonNull::new(lpwstr as _)?, lifetime: PhantomData })
     }
@@ -56,5 +68,12 @@ impl Iterator for WStrUnits<'_> {
             self.lpwstr = NonNull::new_unchecked(self.lpwstr.as_ptr().add(1));
             Some(next)
         }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<'a> Invariant for WStrUnits<'a> {
+    fn is_safe(&self) -> bool {
+        !self.lpwstr.as_ptr().is_null()
     }
 }

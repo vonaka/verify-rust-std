@@ -1,3 +1,14 @@
+#![feature(ub_checks)]
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use super::key::{Key, LazyKey, get, set};
 use super::{abort_on_dtor_unwind, guard};
 use crate::cell::Cell;
@@ -84,6 +95,9 @@ impl<T: 'static> Storage<T> {
     /// # Safety
     /// * `key` must be the result of calling `self.key.force()`
     /// * `ptr` must be the current value associated with `key`.
+    #[requires(can_dereference(&self.key as *const LazyKey))]
+    #[requires(can_dereference(ptr))]
+    #[cfg_attr(kani, kani::modifies(&self.key))]
     unsafe fn try_initialize(
         key: Key,
         ptr: *mut Value<T>,
@@ -122,6 +136,8 @@ impl<T: 'static> Storage<T> {
     }
 }
 
+#[requires(ptr as usize != 0)]
+#[requires(can_dereference(ptr as *const Value<T>))]
 unsafe extern "C" fn destroy_value<T: 'static>(ptr: *mut u8) {
     // SAFETY:
     //
@@ -170,5 +186,26 @@ impl LocalPointer {
 
     pub fn set(&'static self, p: *mut ()) {
         unsafe { set(self.key.force(), p as *mut u8) }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T> Invariant for Storage<T> {
+    fn is_safe(&self) -> bool {
+        can_dereference(&self.key as *const LazyKey)
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T: 'static> Invariant for Value<T> {
+    fn is_safe(&self) -> bool {
+        can_dereference(&self.key as *const Key)
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for LocalPointer {
+    fn is_safe(&self) -> bool {
+        can_dereference(&self.key as *const LazyKey)
     }
 }

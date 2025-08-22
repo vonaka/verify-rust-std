@@ -17,7 +17,16 @@
 //! synchronization as there are no threads!
 
 // FIXME(static_mut_refs): Do not allow `static_mut_refs` lint
+#![feature(ub_checks)]
 #![allow(static_mut_refs)]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::alloc::{GlobalAlloc, Layout, System};
 
@@ -26,6 +35,8 @@ static mut DLMALLOC: dlmalloc::Dlmalloc = dlmalloc::Dlmalloc::new();
 #[stable(feature = "alloc_system_type", since = "1.28.0")]
 unsafe impl GlobalAlloc for System {
     #[inline]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // SAFETY: DLMALLOC access is guaranteed to be safe because the lock gives us unique and non-reentrant access.
         // Calling malloc() is safe because preconditions on this function match the trait method preconditions.
@@ -34,6 +45,8 @@ unsafe impl GlobalAlloc for System {
     }
 
     #[inline]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         // SAFETY: DLMALLOC access is guaranteed to be safe because the lock gives us unique and non-reentrant access.
         // Calling calloc() is safe because preconditions on this function match the trait method preconditions.
@@ -42,6 +55,11 @@ unsafe impl GlobalAlloc for System {
     }
 
     #[inline]
+    #[requires(can_dereference(ptr))]
+    #[requires(ptr as usize % layout.align() == 0)]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
+    #[cfg_attr(kani, kani::modifies(ptr))]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         // SAFETY: DLMALLOC access is guaranteed to be safe because the lock gives us unique and non-reentrant access.
         // Calling free() is safe because preconditions on this function match the trait method preconditions.
@@ -50,6 +68,12 @@ unsafe impl GlobalAlloc for System {
     }
 
     #[inline]
+    #[requires(can_dereference(ptr) && can_read_unaligned(ptr.add(layout.size() - 1)))]
+    #[requires(ptr as usize % layout.align() == 0)]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(new_size <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
+    #[cfg_attr(kani, kani::modifies(ptr))]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         // SAFETY: DLMALLOC access is guaranteed to be safe because the lock gives us unique and non-reentrant access.
         // Calling realloc() is safe because preconditions on this function match the trait method preconditions.

@@ -6,6 +6,7 @@
 //! This is all super highly experimental and not actually intended for
 //! wide/production use yet, it's still all in the experimental category. This
 //! will likely change over time.
+#![feature(ub_checks)]
 #![forbid(unsafe_op_in_unsafe_fn)]
 
 pub const WORD_SIZE: usize = size_of::<u32>();
@@ -19,10 +20,21 @@ pub mod thread;
 #[path = "../unsupported/time.rs"]
 pub mod time;
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::io as std_io;
 
 // SAFETY: must be called only once during runtime initialization.
 // NOTE: this is not guaranteed to run, for example when Rust code is called externally.
+#[requires(_argc >= 0)]
+#[requires(_argc == 0 || can_dereference(_argv))]
+#[requires(_argc == 0 || can_dereference(_argv.offset(_argc - 1)))]
 pub unsafe fn init(_argc: isize, _argv: *const *const u8, _sigpipe: u8) {}
 
 // SAFETY: must be called only once during runtime cleanup.

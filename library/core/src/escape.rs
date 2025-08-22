@@ -1,5 +1,11 @@
 //! Helper code for character escaping.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::ascii;
 use crate::fmt::{self, Write};
 use crate::marker::PhantomData;
@@ -199,6 +205,7 @@ impl<const N: usize, ESCAPING> EscapeIterInner<N, ESCAPING> {
     ///
     /// `data.escape_seq` must contain an escape sequence in the range given by `alive`.
     #[inline]
+    #[requires(alive.end <= (N + 1) as u8)]
     const unsafe fn new(data: MaybeEscapedCharacter<N>, alive: Range<u8>) -> Self {
         // Longer escape sequences are not useful given `alive.end` is at most
         // `Self::LITERAL_ESCAPE_START`.
@@ -270,6 +277,9 @@ impl<const N: usize, ESCAPING> EscapeIterInner<N, ESCAPING> {
     /// - `self.data` must contain printable ASCII characters in its `escape_seq` variant.
     /// - `self.alive` must be a valid range for `self.data.escape_seq`.
     #[inline]
+    #[requires(self.alive.end <= Self::LITERAL_ESCAPE_START)]
+    #[requires(usize::from(self.alive.start) <= usize::from(self.alive.end))]
+    #[requires(usize::from(self.alive.end) <= N)]
     unsafe fn to_str_unchecked(&self) -> &str {
         debug_assert!(self.alive.end <= Self::LITERAL_ESCAPE_START);
 

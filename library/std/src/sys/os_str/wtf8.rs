@@ -1,5 +1,16 @@
 //! The underlying OsString/OsStr implementation on Windows is a
 //! wrapper around the "WTF-8" encoding; see the `wtf8` module for more.
+#![feature(ub_checks)]
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::clone::CloneToUninit;
 
 use crate::borrow::Cow;
@@ -203,6 +214,8 @@ impl Buf {
     /// The length must be at an `OsStr` boundary, according to
     /// `Slice::check_public_boundary`.
     #[inline]
+    #[requires(len <= self.inner.len())]
+    #[cfg_attr(kani, kani::modifies(self.inner.as_mut_ptr()))]
     pub unsafe fn truncate_unchecked(&mut self, len: usize) {
         self.inner.truncate(len);
     }
@@ -219,6 +232,7 @@ impl Buf {
     /// end with a leading surrogate half, or `other` must not start with a
     /// trailing surrogate half.
     #[inline]
+    #[cfg_attr(kani, kani::modifies(self.inner.as_mut_ptr()))]
     pub unsafe fn extend_from_slice_unchecked(&mut self, other: &[u8]) {
         self.inner.extend_from_slice(other);
     }
@@ -323,8 +337,24 @@ impl Slice {
 unsafe impl CloneToUninit for Slice {
     #[inline]
     #[cfg_attr(debug_assertions, track_caller)]
+    #[requires(can_write(dst))]
+    #[requires(can_write_unaligned(dst.add(self.inner.len() - 1)))]
     unsafe fn clone_to_uninit(&self, dst: *mut u8) {
         // SAFETY: we're just a transparent wrapper around Wtf8
         unsafe { self.inner.clone_to_uninit(dst) }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for Buf {
+    fn is_safe(&self) -> bool {
+        can_dereference(self.inner.as_bytes().as_ptr())
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for Slice {
+    fn is_safe(&self) -> bool {
+        can_dereference(self.inner.as_bytes().as_ptr())
     }
 }

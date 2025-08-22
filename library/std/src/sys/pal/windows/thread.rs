@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::ffi::c_void;
 
 use super::time::WaitableTimer;
@@ -20,6 +29,9 @@ pub struct Thread {
 impl Thread {
     // unsafe: see thread::Builder::spawn_unchecked for safety requirements
     #[cfg_attr(miri, track_caller)] // even without panics, this helps for Miri backtraces
+    #[requires(can_dereference(p.as_ref()))]
+    #[requires(stack == 0 || stack >= 4096)]
+    #[cfg_attr(kani, kani::modifies(p))]
     pub unsafe fn new(
         stack: usize,
         _name: Option<&str>,
@@ -76,6 +88,7 @@ impl Thread {
     /// # Safety
     ///
     /// `name` must end with a zero value
+    #[requires(name[name.len() - 1] == 0)]
     pub unsafe fn set_name_wide(name: &[u16]) {
         unsafe { c::SetThreadDescription(c::GetCurrentThread(), name.as_ptr()) };
     }

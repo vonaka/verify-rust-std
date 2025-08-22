@@ -1,3 +1,4 @@
+#![feature(ub_checks)]
 #![allow(dead_code)]
 #![allow(missing_docs, nonstandard_style)]
 #![forbid(unsafe_op_in_unsafe_fn)]
@@ -27,9 +28,13 @@ pub mod time;
 
 // SAFETY: must be called only once during runtime initialization.
 // NOTE: this is not guaranteed to run, for example when Rust code is called externally.
+#[requires(_argc >= 0)]
+#[requires(_argc == 0 || can_dereference(_argv))]
+#[requires(_argc == 0 || can_dereference(_argv.add((_argc - 1) as usize)))]
 pub unsafe fn init(_argc: isize, _argv: *const *const u8, _sigpipe: u8) {}
 
 // SAFETY: must be called only once during runtime cleanup.
+#[requires(true)]
 pub unsafe fn cleanup() {}
 
 pub fn unsupported<T>() -> crate::io::Result<T> {
@@ -50,6 +55,7 @@ pub fn decode_error_kind(code: i32) -> crate::io::ErrorKind {
 }
 
 #[inline]
+#[requires(true)]
 pub fn abort_internal() -> ! {
     unsafe { libc::abort() }
 }

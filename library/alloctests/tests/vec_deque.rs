@@ -1,3 +1,14 @@
+#![feature(ub_checks)]
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::num::NonZero;
 use std::assert_matches::assert_matches;
 use std::collections::TryReserveErrorKind::*;
@@ -1074,6 +1085,9 @@ fn test_append_double_drop() {
 
 #[test]
 #[should_panic]
+#[requires(v.capacity() == usize::MAX)]
+#[requires(core::mem::size_of::<()>() == 0)]
+#[requires(can_write(v.as_mut_ptr()))]
 fn test_append_zst_capacity_overflow() {
     let mut v = Vec::with_capacity(usize::MAX);
     // note: using resize instead of set_len here would
@@ -1848,4 +1862,11 @@ fn test_truncate_front() {
     assert_eq!(v.as_slices(), ([9].as_slice(), [0, 1, 2, 3, 4, 5, 6].as_slice()));
     v.truncate_front(5);
     assert_eq!(v.as_slices(), ([2, 3, 4, 5, 6].as_slice(), [].as_slice()));
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T> Invariant for VecDeque<T> {
+    fn is_safe(&self) -> bool {
+        self.len() <= self.capacity()
+    }
 }

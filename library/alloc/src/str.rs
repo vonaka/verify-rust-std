@@ -2,10 +2,19 @@
 //!
 //! *[See also the `str` primitive type](str).*
 
+#![feature(ub_checks)]
 #![stable(feature = "rust1", since = "1.0.0")]
 // Many of the usings in this module are only used in the test configuration.
 // It's cleaner to just turn off the unused_imports warning than to fix them.
 #![allow(unused_imports)]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use core::borrow::{Borrow, BorrowMut};
 use core::iter::FusedIterator;
@@ -615,6 +624,7 @@ impl str {
 #[stable(feature = "str_box_extras", since = "1.20.0")]
 #[must_use]
 #[inline]
+#[requires(core::str::from_utf8(&v).is_ok())]
 pub unsafe fn from_boxed_utf8_unchecked(v: Box<[u8]>) -> Box<str> {
     unsafe { Box::from_raw(Box::into_raw(v) as *mut str) }
 }
@@ -711,4 +721,28 @@ unsafe fn replace_ascii(utf8_bytes: &[u8], from: u8, to: u8) -> String {
     let result: Vec<u8> = utf8_bytes.iter().map(|b| if *b == from { to } else { *b }).collect();
     // SAFETY: We replaced ascii with ascii on valid utf8 strings.
     unsafe { String::from_utf8_unchecked(result) }
+}
+#[cfg(kani)]
+mod verify {
+    use super::*;
+    #[kani::proof_for_contract(from_boxed_utf8_unchecked)]
+    fn from_boxed_utf8_unchecked_contract() {
+        // Create a small array of valid UTF-8 bytes (ASCII "hello")
+        let valid_utf8_bytes = [b'h', b'e', b'l', b'l', b'o'];
+
+        // Create a Box<[u8]> from the array
+        let boxed_bytes = Box::new(valid_utf8_bytes);
+
+        // Call the function being verified
+        let _boxed_str = unsafe { from_boxed_utf8_unchecked(boxed_bytes) };
+
+        // Create another array with non-ASCII but valid UTF-8 sequence
+        // UTF-8 encoding of "helloé"
+        let valid_utf8_bytes_2 = [b'h', b'e', b'l', b'l', b'o', 0xC3, 0xA9];
+
+        let boxed_bytes_2 = Box::new(valid_utf8_bytes_2);
+
+        // Call the function being verified
+        let _boxed_str_2 = unsafe { from_boxed_utf8_unchecked(boxed_bytes_2) };
+    }
 }

@@ -1,9 +1,19 @@
+#![feature(ub_checks)]
 #![cfg_attr(test, allow(dead_code))]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::sys::c;
 use crate::thread;
 
 /// Reserve stack space for use in stack overflow exceptions.
+#[requires(can_write(&mut 0x5000u32 as *mut u32))]
 pub fn reserve_stack() {
     let result = unsafe { c::SetThreadStackGuarantee(&mut 0x5000) };
     // Reserving stack space is not critical so we allow it to fail in the released build of libstd.
@@ -11,6 +21,8 @@ pub fn reserve_stack() {
     debug_assert_ne!(result, 0, "failed to reserve stack space for exception handling");
 }
 
+#[requires(can_dereference(ExceptionInfo))]
+#[requires((*ExceptionInfo).ExceptionRecord as usize != 0)]
 unsafe extern "system" fn vectored_handler(ExceptionInfo: *mut c::EXCEPTION_POINTERS) -> i32 {
     // SAFETY: It's up to the caller (which in this case is the OS) to ensure that `ExceptionInfo` is valid.
     unsafe {
@@ -28,6 +40,7 @@ unsafe extern "system" fn vectored_handler(ExceptionInfo: *mut c::EXCEPTION_POIN
     }
 }
 
+#[requires(vectored_handler as usize != 0)]
 pub fn init() {
     // SAFETY: `vectored_handler` has the correct ABI and is safe to call during exception handling.
     unsafe {

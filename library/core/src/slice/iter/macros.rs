@@ -80,6 +80,8 @@ macro_rules! iterator {
             #[cfg_attr(kani, kani::modifies(self))]
             #[safety::requires(!is_empty!(self))]
             #[safety::ensures(|_| self.is_safe())]
+            #[requires(!is_empty!(self))]
+            #[cfg_attr(kani, kani::modifies(self))]
             unsafe fn next_back_unchecked(&mut self) -> $elem {
                 // SAFETY: the caller promised it's not empty, so
                 // the offsetting is in-bounds and there's an element to return.
@@ -102,6 +104,8 @@ macro_rules! iterator {
             #[cfg_attr(kani, kani::modifies(self))]
             #[safety::requires(offset <= len!(self))]
             #[safety::ensures(|_| self.is_safe())]
+            #[requires(offset <= len!(self))]
+            #[cfg_attr(kani, kani::modifies(self))]
             unsafe fn post_inc_start(&mut self, offset: usize) -> NonNull<T> {
                 let old = self.ptr;
 
@@ -124,6 +128,8 @@ macro_rules! iterator {
             #[cfg_attr(kani, kani::modifies(self))]
             #[safety::requires(offset <= len!(self))]
             #[safety::ensures(|_| self.is_safe())]
+            #[requires(offset <= len!(self))]
+            #[cfg_attr(kani, kani::modifies(self))]
             unsafe fn pre_dec_end(&mut self, offset: usize) -> NonNull<T> {
                 if_zst!(mut self,
                     // SAFETY: By our precondition, `offset` can be at most the
@@ -471,6 +477,7 @@ macro_rules! iterator {
         impl<'a, T> UncheckedIterator for $name<'a, T> {
             #[inline]
             #[safety::requires(!is_empty!(self))]
+            #[requires(!is_empty!(self))]
             unsafe fn next_unchecked(&mut self) -> $elem {
                 // SAFETY: The caller promised there's at least one more item.
                 unsafe {

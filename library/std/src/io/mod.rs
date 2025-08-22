@@ -292,6 +292,7 @@
 //! [`BorrowedFd<'a>`]: ../os/fd/struct.BorrowedFd.html
 //! [`Arc`]: crate::sync::Arc
 
+#![feature(ub_checks)]
 #![stable(feature = "rust1", since = "1.0.0")]
 
 #[cfg(test)]
@@ -299,6 +300,14 @@ mod tests;
 
 #[unstable(feature = "read_buf", issue = "78485")]
 pub use core::io::{BorrowedBuf, BorrowedCursor};
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::slice::memchr;
 
 #[stable(feature = "bufwriter_into_parts", since = "1.56.0")]
@@ -380,6 +389,8 @@ impl Drop for Guard<'_> {
 // 2. We're passing a raw buffer to the function `f`, and it is expected that
 //    the function only *appends* bytes to the buffer. We'll get undefined
 //    behavior if existing bytes are overwritten to have non-UTF-8 data.
+#[requires(can_dereference(buf))]
+#[cfg_attr(kani, kani::modifies(buf))]
 pub(crate) unsafe fn append_to_string<F>(buf: &mut String, f: F) -> Result<usize>
 where
     F: FnOnce(&mut Vec<u8>) -> Result<usize>,

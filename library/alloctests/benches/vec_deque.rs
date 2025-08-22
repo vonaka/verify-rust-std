@@ -1,3 +1,14 @@
+#![feature(ub_checks)]
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use std::collections::{VecDeque, vec_deque};
 use std::mem;
 
@@ -57,6 +68,8 @@ fn bench_try_fold(b: &mut Bencher) {
 
 /// does the memory bookkeeping to reuse the buffer of the Vec between iterations.
 /// `setup` must not modify its argument's length or capacity. `g` must not move out of its argument.
+#[requires(v.len() <= isize::MAX as usize)]
+#[requires(can_dereference(v.as_ptr()))]
 fn into_iter_helper<
     T: Copy,
     F: FnOnce(&mut VecDeque<T>),
@@ -264,4 +277,11 @@ fn bench_extend_chained_bytes(b: &mut Bencher) {
         ring.clear();
         ring.extend(black_box(input1.iter().chain(input2.iter())));
     });
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T> Invariant for Vec<T> {
+    fn is_safe(&self) -> bool {
+        self.len() <= self.capacity()
+    }
 }

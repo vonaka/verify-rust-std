@@ -1,5 +1,11 @@
 //! This module contains a stable quicksort and partition implementation.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::{ManuallyDrop, MaybeUninit};
 use crate::slice::sort::shared::FreezeMarker;
 use crate::slice::sort::shared::pivot::choose_pivot;
@@ -195,6 +201,12 @@ impl<T> PartitionState<T> {
     ///
     /// `scan` and `scratch` must point to valid disjoint buffers of length `len`. The
     /// scan buffer must be initialized.
+    #[requires(can_dereference(scan))]
+    #[requires(can_write(scratch))]
+    #[requires(len > 0)]
+    #[requires(can_dereference(scan.add(len-1)))]
+    #[requires(can_write(scratch.add(len-1)))]
+    #[requires(!same_allocation(scan, scratch))]
     unsafe fn new(scan: *const T, scratch: *mut T, len: usize) -> Self {
         // SAFETY: See function safety comment.
         unsafe { Self { scratch_base: scratch, scan, num_left: 0, scratch_rev: scratch.add(len) } }
@@ -209,6 +221,10 @@ impl<T> PartitionState<T> {
     /// This function may be called at most `len` times. If it is called exactly
     /// `len` times the scratch buffer then contains a copy of each element from
     /// the scan buffer exactly once - a permutation, and num_left <= len.
+    #[requires(self.scan < self.scratch_rev)]
+    #[requires(can_dereference(self.scan))]
+    #[requires(can_write(self.scratch_rev.sub(1)))]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn partition_one(&mut self, towards_left: bool) -> *mut T {
         // SAFETY: see individual comments.
         unsafe {

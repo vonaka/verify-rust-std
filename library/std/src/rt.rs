@@ -6,6 +6,7 @@
 //! and should be considered as private implementation details for the
 //! time being.
 
+#![feature(ub_checks)]
 #![unstable(
     feature = "rt",
     reason = "this public module should not exist and is highly likely \
@@ -21,6 +22,14 @@ pub use crate::panicking::{begin_panic, panic_count};
 pub use core::panicking::{panic_display, panic_fmt};
 
 #[rustfmt::skip]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::any::Any;
 use crate::sync::Once;
 use crate::thread::{self, main_thread};
@@ -108,6 +117,7 @@ fn handle_rt_panic<T>(e: Box<dyn Any + Send>) -> T {
 // Even though it is an `u8`, it only ever has 4 values. These are documented in
 // `compiler/rustc_session/src/config/sigpipe.rs`.
 #[cfg_attr(test, allow(dead_code))]
+#[requires(argc >= 0 && (argc == 0 || (can_dereference(argv) && can_dereference(argv.add((argc - 1) as usize)))))]
 unsafe fn init(argc: isize, argv: *const *const u8, sigpipe: u8) {
     #[cfg_attr(target_os = "teeos", allow(unused_unsafe))]
     unsafe {

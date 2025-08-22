@@ -1,5 +1,11 @@
 //! This module contains the logic for pivot selection.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::{hint, intrinsics};
 
 // Recursively select a pseudomedian if above this threshold.
@@ -52,6 +58,16 @@ pub fn choose_pivot<T, F: FnMut(&T, &T) -> bool>(v: &[T], is_less: &mut F) -> us
 ///
 /// SAFETY: a, b, c must point to the start of initialized regions of memory of
 /// at least n elements.
+#[requires(can_dereference(a))]
+#[requires(can_dereference(b))]
+#[requires(can_dereference(c))]
+#[requires(n <= isize::MAX as usize / 8)]
+#[requires(n == 0 || can_dereference(a.add(n-1)))]
+#[requires(n == 0 || can_dereference(b.add(n-1)))]
+#[requires(n == 0 || can_dereference(c.add(n-1)))]
+#[requires(n <= 1 || (can_dereference(a.add(n*4)) && can_dereference(a.add(n*7))))]
+#[requires(n <= 1 || (can_dereference(b.add(n*4)) && can_dereference(b.add(n*7))))]
+#[requires(n <= 1 || (can_dereference(c.add(n*4)) && can_dereference(c.add(n*7))))]
 unsafe fn median3_rec<T, F: FnMut(&T, &T) -> bool>(
     mut a: *const T,
     mut b: *const T,

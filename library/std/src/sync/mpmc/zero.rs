@@ -2,6 +2,15 @@
 //!
 //! This kind of channel is also known as *rendezvous* channel.
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use super::context::Context;
 use super::error::*;
 use super::select::{Operation, Selected, Token};
@@ -96,6 +105,8 @@ impl<T> Channel<T> {
     }
 
     /// Writes a message into the packet.
+    #[requires(can_write(token.zero.0 as *mut Packet<T>))]
+    #[cfg_attr(kani, kani::modifies(token.zero.0))]
     pub(crate) unsafe fn write(&self, token: &mut Token, msg: T) -> Result<(), T> {
         // If there is no packet, the channel is disconnected.
         if token.zero.0.is_null() {
@@ -111,6 +122,8 @@ impl<T> Channel<T> {
     }
 
     /// Reads a message from the packet.
+    #[requires(can_dereference(token.zero.0 as *const Packet<T>))]
+    #[cfg_attr(kani, kani::modifies(token.zero.0))]
     pub(crate) unsafe fn read(&self, token: &mut Token) -> Result<T, ()> {
         // If there is no packet, the channel is disconnected.
         if token.zero.0.is_null() {

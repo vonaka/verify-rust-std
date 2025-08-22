@@ -1,6 +1,12 @@
 #![doc = include_str!("error.md")]
 #![stable(feature = "error_in_core", since = "1.81.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::any::TypeId;
 use crate::fmt::{self, Debug, Display, Formatter};
 
@@ -235,6 +241,7 @@ impl dyn Error + 'static {
     /// `None` if it isn't.
     #[stable(feature = "error_downcast", since = "1.3.0")]
     #[inline]
+    #[requires(self.is::<T>())]
     pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
         if self.is::<T>() {
             // SAFETY: `is` ensures this type cast is correct
@@ -248,6 +255,7 @@ impl dyn Error + 'static {
     /// `None` if it isn't.
     #[stable(feature = "error_downcast", since = "1.3.0")]
     #[inline]
+    #[requires(self.is::<T>())]
     pub fn downcast_mut<T: Error + 'static>(&mut self) -> Option<&mut T> {
         if self.is::<T>() {
             // SAFETY: `is` ensures this type cast is correct

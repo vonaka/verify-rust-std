@@ -5,6 +5,12 @@
 //! [^1]: Florian Loitsch. 2010. Printing floating-point numbers quickly and
 //!   accurately with integers. SIGPLAN Not. 45, 6 (June 2010), 233-243.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::MaybeUninit;
 use crate::num::diy_float::Fp;
 use crate::num::flt2dec::{Decoded, MAX_SIG_DIGITS, round_up};
@@ -645,6 +651,9 @@ pub fn format_exact_opt<'a>(
     // - `ulp = 2^-e * k`
     //
     // SAFETY: the first `len` bytes of `buf` must be initialized.
+    #[requires(!buf.is_empty())]
+    #[requires(buf.len() >= len)]
+    #[cfg_attr(kani, kani::modifies(buf))]
     unsafe fn possibly_round(
         buf: &mut [MaybeUninit<u8>],
         mut len: usize,

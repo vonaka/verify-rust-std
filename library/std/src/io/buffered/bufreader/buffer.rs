@@ -9,6 +9,8 @@
 //! that user code which wants to do reads from a `BufReader` via `buffer` + `consume` can do so
 //! without encountering any runtime bounds checks.
 
+use core::ub_checks::Invariant;
+
 use crate::cmp;
 use crate::io::{self, BorrowedBuf, ErrorKind, Read};
 use crate::mem::MaybeUninit;
@@ -151,5 +153,12 @@ impl Buffer {
             result?;
         }
         Ok(self.buffer())
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for Buffer {
+    fn is_safe(&self) -> bool {
+        self.pos <= self.filled && self.filled <= self.initialized
     }
 }

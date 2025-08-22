@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::io::{
     self, DEFAULT_BUF_SIZE, ErrorKind, IntoInnerError, IoSlice, Seek, SeekFrom, Write,
 };
@@ -436,6 +445,8 @@ impl<W: ?Sized + Write> BufWriter<W> {
     // SAFETY: Requires `buf.len() <= self.buf.capacity() - self.buf.len()`,
     // i.e., that input buffer length is less than or equal to spare capacity.
     #[inline]
+    #[requires(buf.len() <= self.spare_capacity())]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn write_to_buffer_unchecked(&mut self, buf: &[u8]) {
         debug_assert!(buf.len() <= self.spare_capacity());
         let old_len = self.buf.len();

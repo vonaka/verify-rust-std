@@ -1,5 +1,11 @@
 //! This module contains a branchless heapsort as fallback for unstable quicksort.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::{cmp, intrinsics, ptr};
 
 /// Sorts `v` using heapsort, which guarantees *O*(*n* \* log(*n*)) worst-case.
@@ -34,6 +40,8 @@ where
 //
 // SAFETY: The caller has to guarantee that `node <= v.len()`.
 #[inline(always)]
+#[requires(node <= v.len())]
+#[cfg_attr(kani, kani::modifies(v))]
 unsafe fn sift_down<T, F>(v: &mut [T], mut node: usize, is_less: &mut F)
 where
     F: FnMut(&T, &T) -> bool,

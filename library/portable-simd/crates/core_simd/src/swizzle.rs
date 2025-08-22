@@ -1,3 +1,5 @@
+use core::ub_checks::Invariant;
+
 use crate::simd::{LaneCount, Mask, MaskElement, Simd, SimdElement, SupportedLaneCount};
 
 /// Constructs a new SIMD vector by copying elements from selected elements in other vectors.
@@ -685,5 +687,12 @@ where
     {
         // Safety: swizzles are safe for masks
         unsafe { Mask::<T, LEN>::from_int_unchecked(self.to_int().extract::<START, LEN>()) }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T, const N: usize> Invariant for Mask<T, N> where T: MaskElement, LaneCount<N>: SupportedLaneCount {
+    fn is_safe(&self) -> bool {
+        true // swizzles are safe for masks
     }
 }

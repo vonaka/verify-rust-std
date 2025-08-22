@@ -1,5 +1,11 @@
 //! Free functions to create `&[T]` and `&mut [T]`.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::ops::Range;
 use crate::{array, ptr, ub_checks};
 
@@ -121,6 +127,9 @@ use crate::{array, ptr, ub_checks};
 #[must_use]
 #[rustc_diagnostic_item = "slice_from_raw_parts"]
 #[track_caller]
+#[requires(can_dereference(data))]
+#[requires(data as usize % align_of::<T>() == 0)]
+#[requires((len * size_of::<T>()) as isize <= isize::MAX)]
 pub const unsafe fn from_raw_parts<'a, T>(data: *const T, len: usize) -> &'a [T] {
     // SAFETY: the caller must uphold the safety contract for `from_raw_parts`.
     unsafe {
@@ -176,6 +185,9 @@ pub const unsafe fn from_raw_parts<'a, T>(data: *const T, len: usize) -> &'a [T]
 #[must_use]
 #[rustc_diagnostic_item = "slice_from_raw_parts_mut"]
 #[track_caller]
+#[requires(can_write(data))]
+#[requires(data as usize % align_of::<T>() == 0)]
+#[requires((len * size_of::<T>()) as isize <= isize::MAX)]
 pub const unsafe fn from_raw_parts_mut<'a, T>(data: *mut T, len: usize) -> &'a mut [T] {
     // SAFETY: the caller must uphold the safety contract for `from_raw_parts_mut`.
     unsafe {
@@ -274,6 +286,11 @@ pub const fn from_mut<T>(s: &mut T) -> &mut [T] {
 #[unstable(feature = "slice_from_ptr_range", issue = "89792")]
 #[rustc_const_unstable(feature = "const_slice_from_ptr_range", issue = "89792")]
 #[track_caller]
+#[requires(can_dereference(range.start))]
+#[requires(range.start as usize % align_of::<T>() == 0)]
+#[requires(range.end as usize % align_of::<T>() == 0)]
+#[requires(range.end >= range.start)]
+#[requires((range.end as usize - range.start as usize) as isize <= isize::MAX)]
 pub const unsafe fn from_ptr_range<'a, T>(range: Range<*const T>) -> &'a [T] {
     // SAFETY: the caller must uphold the safety contract for `from_ptr_range`.
     unsafe { from_raw_parts(range.start, range.end.offset_from_unsigned(range.start)) }
@@ -344,6 +361,11 @@ pub const unsafe fn from_ptr_range<'a, T>(range: Range<*const T>) -> &'a [T] {
 /// [valid]: ptr#safety
 #[unstable(feature = "slice_from_ptr_range", issue = "89792")]
 #[rustc_const_unstable(feature = "const_slice_from_mut_ptr_range", issue = "89792")]
+#[requires(can_write(range.start))]
+#[requires(range.start as usize % align_of::<T>() == 0)]
+#[requires(range.end as usize % align_of::<T>() == 0)]
+#[requires(range.end >= range.start)]
+#[requires((range.end as usize - range.start as usize) as isize <= isize::MAX)]
 pub const unsafe fn from_mut_ptr_range<'a, T>(range: Range<*mut T>) -> &'a mut [T] {
     // SAFETY: the caller must uphold the safety contract for `from_mut_ptr_range`.
     unsafe { from_raw_parts_mut(range.start, range.end.offset_from_unsigned(range.start)) }

@@ -1,3 +1,11 @@
+use crate::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::cell::UnsafeCell;
 use crate::{fmt, mem};
 
@@ -52,6 +60,7 @@ impl<T> OnceCell<T> {
     /// Returns `None` if the cell is uninitialized.
     #[inline]
     #[stable(feature = "once_cell", since = "1.70.0")]
+    #[requires(can_dereference(self.inner.get()))]
     pub fn get(&self) -> Option<&T> {
         // SAFETY: Safe due to `inner`'s invariant
         unsafe { &*self.inner.get() }.as_ref()
@@ -120,6 +129,7 @@ impl<T> OnceCell<T> {
     /// ```
     #[inline]
     #[unstable(feature = "once_cell_try_insert", issue = "116693")]
+    #[requires(can_dereference(self.inner.get()))]
     pub fn try_insert(&self, value: T) -> Result<&T, (&T, T)> {
         if let Some(old) = self.get() {
             return Err((old, value));
@@ -406,3 +416,10 @@ impl<T> From<T> for OnceCell<T> {
 // Just like for `Cell<T>` this isn't needed, but results in nicer error messages.
 #[stable(feature = "once_cell", since = "1.70.0")]
 impl<T> !Sync for OnceCell<T> {}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T> Invariant for OnceCell<T> {
+    fn is_safe(&self) -> bool {
+        can_dereference(self.inner.get())
+    }
+}

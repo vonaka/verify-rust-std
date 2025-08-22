@@ -1,4 +1,13 @@
+#![feature(ub_checks)]
 #![allow(unused)]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use fortanix_sgx_abi::*;
 
@@ -92,6 +101,8 @@ pub unsafe trait UserSafe {
     /// * the pointer is null.
     /// * the pointed-to range does not fit in the address space.
     /// * the pointed-to range is not in user memory.
+    #[requires(ptr.wrapping_add(size) >= ptr)]
+    #[requires(can_dereference(ptr as *const u8))]
     unsafe fn from_raw_sized(ptr: *mut u8, size: usize) -> NonNull<Self> {
         assert!(ptr.wrapping_add(size) >= ptr);
         // SAFETY: The caller has guaranteed the pointer is valid
@@ -116,6 +127,9 @@ pub unsafe trait UserSafe {
     /// * the pointer is not aligned.
     /// * the pointer is null.
     /// * the pointed-to range is not in user memory.
+    #[requires(ptr.is_aligned_to(Self::align_of()))]
+    #[requires(can_dereference(ptr as *const u8))]
+    #[requires(is_user_range(ptr as _, size_of_val(unsafe { &*ptr })))]
     unsafe fn check_ptr(ptr: *const Self) {
         let is_aligned = |p: *const u8| -> bool { p.is_aligned_to(Self::align_of()) };
 
@@ -409,6 +423,13 @@ unsafe fn copy_quadwords(src: *const u8, dst: *mut u8, len: usize) {
 /// # References
 ///  - https://www.intel.com/content/www/us/en/security-center/advisory/intel-sa-00615.html
 ///  - https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/processor-mmio-stale-data-vulnerabilities.html#inpage-nav-3-2-2
+#[requires(can_dereference(src as *const u8))]
+#[requires(is_enclave_range(src, len))]
+#[requires(is_user_range(dst, len))]
+#[requires(len < isize::MAX as usize)]
+#[requires(!src.addr().overflowing_add(len).1)]
+#[requires(!dst.addr().overflowing_add(len).1)]
+#[cfg_attr(kani, kani::modifies(dst))]
 pub(crate) unsafe fn copy_to_userspace(src: *const u8, dst: *mut u8, len: usize) {
     /// Like `ptr::copy(src, dst, len)`, except it uses the Intel-recommended
     /// instruction sequence for unaligned writes.
@@ -471,6 +492,13 @@ pub(crate) unsafe fn copy_to_userspace(src: *const u8, dst: *mut u8, len: usize)
 /// # References
 ///  - https://www.intel.com/content/www/us/en/security-center/advisory/intel-sa-00657.html
 ///  - https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/advisory-guidance/stale-data-read-from-xapic.html
+#[requires(can_dereference(src as *const u8))]
+#[requires(is_user_range(src, len))]
+#[requires(is_enclave_range(dst, len))]
+#[requires(len < isize::MAX as usize)]
+#[requires(!(src as usize).overflowing_add(len).1)]
+#[requires(!(dst as usize).overflowing_add(len).1)]
+#[cfg_attr(kani, kani::modifies(dst))]
 pub(crate) unsafe fn copy_from_userspace(src: *const u8, dst: *mut u8, len: usize) {
     /// Like `ptr::copy(src, dst, len)`, except it uses only u64-aligned reads.
     ///
@@ -538,6 +566,8 @@ where
     /// * The pointer is not aligned
     /// * The pointer is null
     /// * The pointed-to range is not in user memory
+    #[requires(can_dereference(ptr as *const T))]
+    #[requires(is_user_range(ptr as _, size_of_val(unsafe { &*ptr })))]
     pub unsafe fn from_ptr<'a>(ptr: *const T) -> &'a Self {
         // SAFETY: The caller must uphold the safety contract for `from_ptr`.
         unsafe { T::check_ptr(ptr) };
@@ -556,6 +586,8 @@ where
     /// * The pointer is not aligned
     /// * The pointer is null
     /// * The pointed-to range is not in user memory
+    #[requires(can_dereference(ptr as *const T))]
+    #[requires(is_user_range(ptr as _, size_of_val(unsafe { &*ptr })))]
     pub unsafe fn from_mut_ptr<'a>(ptr: *mut T) -> &'a mut Self {
         // SAFETY: The caller must uphold the safety contract for `from_mut_ptr`.
         unsafe { T::check_ptr(ptr) };

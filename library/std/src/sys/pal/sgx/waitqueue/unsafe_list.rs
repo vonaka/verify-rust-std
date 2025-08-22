@@ -1,8 +1,17 @@
 //! A doubly-linked list where callers are in charge of memory allocation
 //! of the nodes in the list.
 
+#![feature(ub_checks)]
 #[cfg(test)]
 mod tests;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::mem;
 use crate::ptr::NonNull;
@@ -35,6 +44,7 @@ impl<T> UnsafeList<T> {
     }
 
     /// # Safety
+    #[requires(self.head_tail_entry.is_some() && can_dereference(self.head_tail_entry.as_mut().unwrap() as *mut UnsafeListEntry<T>))]
     unsafe fn init(&mut self) {
         if self.head_tail_entry.is_none() {
             self.head_tail_entry = Some(UnsafeListEntry::dummy());
@@ -73,6 +83,10 @@ impl<T> UnsafeList<T> {
     /// list AND the caller who popped is done using the entry. Special
     /// care must be taken in the caller of `push` to ensure unwinding does
     /// not destroy the stack frame containing the entry.
+    #[requires(can_dereference(entry as *const UnsafeListEntry<T>))]
+    #[requires(entry.value.is_some())]
+    #[cfg_attr(kani, kani::modifies(entry))]
+    #[cfg_attr(kani, kani::modifies(self.head_tail.as_mut()))]
     pub unsafe fn push<'a>(&mut self, entry: &'a mut UnsafeListEntry<T>) -> &'a T {
         unsafe { self.init() };
 
@@ -102,6 +116,8 @@ impl<T> UnsafeList<T> {
     ///
     /// The caller must make sure to synchronize ending the borrow of the
     /// return value and deallocation of the containing entry.
+    #[requires(!self.is_empty())]
+    #[cfg_attr(kani, kani::modifies(self.head_tail.as_mut()))]
     pub unsafe fn pop<'a>(&mut self) -> Option<&'a T> {
         unsafe { self.init() };
 
@@ -134,6 +150,9 @@ impl<T> UnsafeList<T> {
     ///
     /// The caller must ensure that `entry` has been pushed onto `self`
     /// prior to this call and has not moved since then.
+    #[requires(!self.is_empty())]
+    #[requires(can_dereference(entry as *mut UnsafeListEntry<T>))]
+    #[cfg_attr(kani, kani::modifies(entry))]
     pub unsafe fn remove(&mut self, entry: &mut UnsafeListEntry<T>) {
         rtassert!(!self.is_empty());
         // BEFORE:

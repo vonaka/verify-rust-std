@@ -1,3 +1,5 @@
+use core::ub_checks::Invariant;
+
 use std::cmp::Ordering;
 
 // Very large stack value.
@@ -78,5 +80,12 @@ impl Ord for F128 {
 
         // SAFETY: We checked in the ctor that both are normal.
         unsafe { this_div.partial_cmp(&other_div).unwrap_unchecked() }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for F128 {
+    fn is_safe(&self) -> bool {
+        self.x.is_normal() && self.y.is_normal()
     }
 }

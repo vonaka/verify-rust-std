@@ -2,6 +2,12 @@
 
 #![allow(deprecated)] // the types in this module are deprecated
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::marker::PhantomData;
 use crate::{cmp, ptr};
 
@@ -117,6 +123,8 @@ macro_rules! load_int_le {
 /// Safety: this performs unchecked indexing of `buf` at `start..start+len`, so
 /// that must be in-bounds.
 #[inline]
+#[requires(len < 8)]
+#[requires(start + len <= buf.len())]
 unsafe fn u8to64_le(buf: &[u8], start: usize, len: usize) -> u64 {
     debug_assert!(len < 8);
     let mut i = 0; // current byte index (from LSB) in the output u64

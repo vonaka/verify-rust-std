@@ -9,6 +9,15 @@
 //! - Protocols are produced and consumed.
 //! - More information about protocols can be found [here](https://edk2-docs.gitbook.io/edk-ii-uefi-driver-writer-s-guide/3_foundation/36_protocols_and_handles)
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use r_efi::efi::{self, Guid};
 use r_efi::protocols::{device_path, device_path_to_text, service_binding, shell};
 
@@ -40,6 +49,9 @@ const BOOT_SERVICES_UNAVAILABLE: io::Error =
 ///
 /// Returns an array of [Handles](r_efi::efi::Handle) that support a specified protocol.
 pub(crate) fn locate_handles(mut guid: Guid) -> io::Result<Vec<NonNull<crate::ffi::c_void>>> {
+    #[requires(can_dereference(buf.as_mut_ptr()))]
+    #[requires(*buf_size > 0)]
+    #[requires(can_dereference(boot_services.as_ptr()))]
     fn inner(
         guid: &mut Guid,
         boot_services: NonNull<r_efi::efi::BootServices>,
@@ -92,6 +104,7 @@ pub(crate) fn locate_handles(mut guid: Guid) -> io::Result<Vec<NonNull<crate::ff
 ///
 /// Queries a handle to determine if it supports a specified protocol. If the protocol is
 /// supported by the handle, it opens the protocol on behalf of the calling agent.
+#[requires(can_dereference(handle.as_ptr()))]
 pub(crate) fn open_protocol<T>(
     handle: NonNull<crate::ffi::c_void>,
     mut protocol_guid: Guid,
@@ -130,6 +143,7 @@ pub(crate) fn image_handle_protocol<T>(protocol_guid: Guid) -> io::Result<NonNul
 }
 
 pub(crate) fn device_path_to_text(path: NonNull<device_path::Protocol>) -> io::Result<OsString> {
+    #[requires(can_dereference(protocol.as_ptr()))]
     fn path_to_text(
         protocol: NonNull<device_path_to_text::Protocol>,
         path: NonNull<device_path::Protocol>,
@@ -423,6 +437,7 @@ impl<'a> DevicePathNode<'a> {
             && self.sub_type() == r_efi::protocols::device_path::End::SUBTYPE_INSTANCE
     }
 
+    #[requires(can_dereference(self.protocol.as_ptr().cast::<u8>().add(self.length().into())))]
     pub(crate) unsafe fn next_node(&self) -> Self {
         let node = unsafe {
             self.protocol
@@ -481,6 +496,7 @@ pub(crate) struct OwnedProtocol<T> {
 
 impl<T> OwnedProtocol<T> {
     // FIXME: Consider using unsafe trait for matching protocol with guid
+    #[requires(can_dereference(&guid as *const r_efi::efi::Guid))]
     pub(crate) unsafe fn create(protocol: T, mut guid: r_efi::efi::Guid) -> io::Result<Self> {
         let bt: NonNull<r_efi::efi::BootServices> =
             boot_services().ok_or(BOOT_SERVICES_UNAVAILABLE)?.cast();
@@ -594,6 +610,7 @@ impl<T> Drop for OwnedTable<T> {
 }
 
 /// Create OsString from a pointer to NULL terminated UTF-16 string
+#[requires(can_dereference(ptr))]
 pub(crate) fn os_string_from_raw(ptr: *mut r_efi::efi::Char16) -> Option<OsString> {
     let path_len = unsafe { WStrUnits::new(ptr)?.count() };
     Some(OsString::from_wide(unsafe { slice::from_raw_parts(ptr.cast(), path_len) }))
@@ -741,6 +758,7 @@ impl OwnedEvent {
     }
 
     /// SAFETY: Assumes that ptr is a non-null valid UEFI event
+    #[requires(can_dereference(ptr))]
     pub(crate) unsafe fn from_raw(ptr: *mut crate::ffi::c_void) -> Self {
         Self(unsafe { NonNull::new_unchecked(ptr) })
     }

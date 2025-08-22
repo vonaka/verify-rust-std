@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use super::{MIN_ALIGN, realloc_fallback};
 use crate::alloc::{GlobalAlloc, Layout, System};
 use crate::ffi::c_void;
@@ -109,6 +118,9 @@ struct Header(*mut u8);
 // or null if the operation fails. If this returns non-null `HEAP` will have been successfully
 // initialized.
 #[inline]
+#[requires(layout.size() <= isize::MAX as usize)]
+#[requires(layout.align().is_power_of_two())]
+#[requires(layout.size().checked_add(layout.align()).is_some())]
 unsafe fn allocate(layout: Layout, zeroed: bool) -> *mut u8 {
     // Allocated memory will be either zeroed or uninitialized.
     let flags = if zeroed { HEAP_ZERO_MEMORY } else { 0 };
@@ -160,6 +172,8 @@ unsafe fn allocate(layout: Layout, zeroed: bool) -> *mut u8 {
 #[stable(feature = "alloc_system_type", since = "1.28.0")]
 unsafe impl GlobalAlloc for System {
     #[inline]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // SAFETY: Pointers returned by `allocate` satisfy the guarantees of `System`
         let zeroed = false;
@@ -167,6 +181,8 @@ unsafe impl GlobalAlloc for System {
     }
 
     #[inline]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         // SAFETY: Pointers returned by `allocate` satisfy the guarantees of `System`
         let zeroed = true;
@@ -174,6 +190,11 @@ unsafe impl GlobalAlloc for System {
     }
 
     #[inline]
+    #[requires(can_dereference(ptr) && can_read_unaligned(ptr.add(layout.size() - 1)))]
+    #[requires(ptr as usize % layout.align() == 0)]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
+    #[cfg_attr(kani, kani::modifies(ptr))]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let block = {
             if layout.align() <= MIN_ALIGN {
@@ -197,6 +218,11 @@ unsafe impl GlobalAlloc for System {
     }
 
     #[inline]
+    #[requires(can_dereference(ptr) && can_read_unaligned(ptr.add(layout.size() - 1)))]
+    #[requires(ptr as usize % layout.align() == 0)]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(new_size <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         if layout.align() <= MIN_ALIGN {
             // because `ptr` has been successfully allocated with this allocator,

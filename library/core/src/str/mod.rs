@@ -13,6 +13,12 @@ mod iter;
 mod traits;
 mod validations;
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use self::pattern::{DoubleEndedSearcher, Pattern, ReverseSearcher, Searcher};
 use crate::char::{self, EscapeDebugExtArgs};
 use crate::ops::Range;
@@ -754,6 +760,9 @@ impl str {
     #[deprecated(since = "1.29.0", note = "use `get_unchecked(begin..end)` instead")]
     #[must_use]
     #[inline]
+    #[requires(begin <= end)]
+    #[requires(begin <= self.len() && end <= self.len())]
+    #[requires(self.is_char_boundary(begin) && self.is_char_boundary(end))]
     pub unsafe fn slice_unchecked(&self, begin: usize, end: usize) -> &str {
         // SAFETY: the caller must uphold the safety contract for `get_unchecked`;
         // the slice is dereferenceable because `self` is a safe reference.
@@ -788,6 +797,9 @@ impl str {
     #[stable(feature = "str_slice_mut", since = "1.5.0")]
     #[deprecated(since = "1.29.0", note = "use `get_unchecked_mut(begin..end)` instead")]
     #[inline]
+    #[requires(begin <= end)]
+    #[requires(begin <= self.len() && end <= self.len())]
+    #[requires(self.is_char_boundary(begin) && self.is_char_boundary(end))]
     pub unsafe fn slice_mut_unchecked(&mut self, begin: usize, end: usize) -> &mut str {
         // SAFETY: the caller must uphold the safety contract for `get_unchecked_mut`;
         // the slice is dereferenceable because `self` is a safe reference.
@@ -967,6 +979,8 @@ impl str {
     /// The caller must ensure that `mid` is a valid byte offset from the start
     /// of the string and falls on the boundary of a UTF-8 code point.
     #[inline]
+    #[requires(mid <= self.len())]
+    #[requires(self.is_char_boundary(mid))]
     const unsafe fn split_at_unchecked(&self, mid: usize) -> (&str, &str) {
         let len = self.len();
         let ptr = self.as_ptr();
@@ -985,6 +999,8 @@ impl str {
     ///
     /// The caller must ensure that `mid` is a valid byte offset from the start
     /// of the string and falls on the boundary of a UTF-8 code point.
+    #[requires(mid <= self.len())]
+    #[requires(self.is_char_boundary(mid))]
     const unsafe fn split_at_mut_unchecked(&mut self, mid: usize) -> (&mut str, &mut str) {
         let len = self.len();
         let ptr = self.as_mut_ptr();
@@ -2743,6 +2759,7 @@ impl str {
     #[unstable(feature = "ascii_char", issue = "110998")]
     #[must_use]
     #[inline]
+    #[requires(self.is_ascii())]
     pub const unsafe fn as_ascii_unchecked(&self) -> &[ascii::Char] {
         assert_unsafe_precondition!(
             check_library_ub,

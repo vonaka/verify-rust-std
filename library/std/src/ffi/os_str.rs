@@ -1,7 +1,16 @@
 //! The [`OsStr`] and [`OsString`] types and associated utilities.
 
+#![feature(ub_checks)]
 #[cfg(test)]
 mod tests;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use core::clone::CloneToUninit;
 
@@ -871,6 +880,7 @@ impl OsStr {
     /// [conversions]: super#conversions
     #[inline]
     #[stable(feature = "os_str_bytes", since = "1.74.0")]
+    #[requires(can_dereference(bytes))]
     pub unsafe fn from_encoded_bytes_unchecked(bytes: &[u8]) -> &Self {
         Self::from_inner(unsafe { Slice::from_encoded_bytes_unchecked(bytes) })
     }

@@ -1,5 +1,11 @@
 //! This module contains a variety of sort implementations that are optimized for small lengths.
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::mem::{self, ManuallyDrop, MaybeUninit};
 use crate::slice::sort::shared::FreezeMarker;
 use crate::{hint, intrinsics, ptr, slice};
@@ -383,6 +389,9 @@ where
 /// types. `is_less` could be a huge function and we want to give the compiler an option to
 /// not inline this function. For the same reasons that this function is very perf critical
 /// it should be in the same module as the functions that use it.
+#[requires(can_write(v_base.add(a_pos)))]
+#[requires(can_write(v_base.add(b_pos)))]
+#[requires(same_allocation(v_base.add(a_pos), v_base.add(b_pos)))]
 unsafe fn swap_if_less<T, F>(v_base: *mut T, a_pos: usize, b_pos: usize, is_less: &mut F)
 where
     F: FnMut(&T, &T) -> bool,
@@ -539,6 +548,12 @@ where
 ///
 /// # Safety
 /// begin < tail and p must be valid and initialized for all begin <= p <= tail.
+#[requires(begin < tail)]
+#[requires(can_dereference(begin))]
+#[requires(can_dereference(tail))]
+#[requires(can_write(begin))]
+#[requires(can_write(tail))]
+#[requires(same_allocation(begin, tail))]
 unsafe fn insert_tail<T, F: FnMut(&T, &T) -> bool>(begin: *mut T, tail: *mut T, is_less: &mut F) {
     // SAFETY: see individual comments.
     unsafe {
@@ -609,6 +624,15 @@ pub fn insertion_sort_shift_left<T, F: FnMut(&T, &T) -> bool>(
 
 /// SAFETY: The caller MUST guarantee that `v_base` is valid for 4 reads and
 /// `dst` is valid for 4 writes. The result will be stored in `dst[0..4]`.
+#[requires(can_dereference(v_base))]
+#[requires(can_dereference(v_base.add(1)))]
+#[requires(can_dereference(v_base.add(2)))]
+#[requires(can_dereference(v_base.add(3)))]
+#[requires(can_write(dst))]
+#[requires(can_write(dst.add(1)))]
+#[requires(can_write(dst.add(2)))]
+#[requires(can_write(dst.add(3)))]
+#[requires(!same_allocation(v_base, dst))]
 pub unsafe fn sort4_stable<T, F: FnMut(&T, &T) -> bool>(
     v_base: *const T,
     dst: *mut T,
@@ -660,6 +684,17 @@ pub unsafe fn sort4_stable<T, F: FnMut(&T, &T) -> bool>(
 /// SAFETY: The caller MUST guarantee that `v_base` is valid for 8 reads and
 /// writes, `scratch_base` and `dst` MUST be valid for 8 writes. The result will
 /// be stored in `dst[0..8]`.
+#[requires(can_dereference(v_base))]
+#[requires(can_dereference(v_base.add(4)))]
+#[requires(can_dereference(v_base.add(7)))]
+#[requires(can_write(dst))]
+#[requires(can_write(dst.add(4)))]
+#[requires(can_write(dst.add(7)))]
+#[requires(can_write(scratch_base))]
+#[requires(can_write(scratch_base.add(4)))]
+#[requires(can_write(scratch_base.add(7)))]
+#[requires(!same_allocation(v_base, scratch_base))]
+#[requires(!same_allocation(dst, scratch_base))]
 unsafe fn sort8_stable<T: FreezeMarker, F: FnMut(&T, &T) -> bool>(
     v_base: *mut T,
     dst: *mut T,
@@ -680,6 +715,11 @@ unsafe fn sort8_stable<T: FreezeMarker, F: FnMut(&T, &T) -> bool>(
 }
 
 #[inline(always)]
+#[requires(can_dereference(left_src))]
+#[requires(can_dereference(right_src))]
+#[requires(can_write(dst))]
+#[requires(!same_allocation(left_src, dst))]
+#[requires(!same_allocation(right_src, dst))]
 unsafe fn merge_up<T, F: FnMut(&T, &T) -> bool>(
     mut left_src: *const T,
     mut right_src: *const T,
@@ -713,6 +753,11 @@ unsafe fn merge_up<T, F: FnMut(&T, &T) -> bool>(
 }
 
 #[inline(always)]
+#[requires(can_dereference(left_src))]
+#[requires(can_dereference(right_src))]
+#[requires(can_write(dst))]
+#[requires(!same_allocation(left_src, dst))]
+#[requires(!same_allocation(right_src, dst))]
 unsafe fn merge_down<T, F: FnMut(&T, &T) -> bool>(
     mut left_src: *const T,
     mut right_src: *const T,
@@ -757,6 +802,12 @@ unsafe fn merge_down<T, F: FnMut(&T, &T) -> bool>(
 ///
 /// Note that T must be Freeze, the comparison function is evaluated on outdated
 /// temporary 'copies' that may not end up in the final array.
+#[requires(v.len() >= 2)]
+#[requires(can_dereference(dst))]
+#[requires(can_write(dst))]
+#[requires(can_write(dst.add(v.len()/2)))]
+#[requires(can_write(dst.add(v.len() - 1)))]
+#[requires(!same_allocation(v.as_ptr(), dst))]
 unsafe fn bidirectional_merge<T: FreezeMarker, F: FnMut(&T, &T) -> bool>(
     v: &[T],
     dst: *mut T,

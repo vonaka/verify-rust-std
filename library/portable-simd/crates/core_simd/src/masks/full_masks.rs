@@ -1,5 +1,14 @@
 //! Masks that take up full SIMD vector registers.
 
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::simd::{LaneCount, MaskElement, Simd, SupportedLaneCount};
 
 #[repr(transparent)]
@@ -108,11 +117,14 @@ where
 
     #[inline]
     #[must_use = "method returns a new bool and does not mutate the original value"]
+    #[requires(lane < N)]
     pub(crate) unsafe fn test_unchecked(&self, lane: usize) -> bool {
         T::eq(self.0[lane], T::TRUE)
     }
 
     #[inline]
+    #[requires(lane < N)]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub(crate) unsafe fn set_unchecked(&mut self, lane: usize, value: bool) {
         self.0[lane] = if value { T::TRUE } else { T::FALSE }
     }

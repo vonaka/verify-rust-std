@@ -513,6 +513,7 @@ macro_rules! int_impl {
         #[inline(always)]
         #[track_caller]
         #[requires(!self.overflowing_add(rhs).1)]
+        #[requires(!self.overflowing_add(rhs).1)]
         pub const unsafe fn unchecked_add(self, rhs: Self) -> Self {
             assert_unsafe_precondition!(
                 check_language_ub,
@@ -654,6 +655,7 @@ macro_rules! int_impl {
         #[inline(always)]
         #[track_caller]
         #[requires(!self.overflowing_sub(rhs).1)] // Preconditions: No overflow should occur
+        #[requires(!self.overflowing_sub(rhs).1)]
         pub const unsafe fn unchecked_sub(self, rhs: Self) -> Self {
             assert_unsafe_precondition!(
                 check_language_ub,
@@ -794,6 +796,7 @@ macro_rules! int_impl {
                       without modifying the original"]
         #[inline(always)]
         #[track_caller]
+        #[requires(!self.overflowing_mul(rhs).1)]
         #[requires(!self.overflowing_mul(rhs).1)]
         pub const unsafe fn unchecked_mul(self, rhs: Self) -> Self {
             assert_unsafe_precondition!(
@@ -1032,6 +1035,9 @@ macro_rules! int_impl {
         #[must_use = "this returns the result of the operation, \
                       without modifying the original"]
         #[inline]
+        #[requires(rhs != 0)]
+        #[requires(self % rhs == 0)]
+        #[requires(!(self == Self::MIN && rhs == -1))]
         pub const unsafe fn unchecked_exact_div(self, rhs: Self) -> Self {
             assert_unsafe_precondition!(
                 check_language_ub,
@@ -1215,6 +1221,8 @@ macro_rules! int_impl {
         #[track_caller]
         #[requires(self != $SelfT::MIN)]
         #[ensures(|result| *result == -self)]
+        #[requires(self != $SelfT::MIN)]
+        #[ensures(|result| *result == -self)]
         pub const unsafe fn unchecked_neg(self) -> Self {
             assert_unsafe_precondition!(
                 check_language_ub,
@@ -1336,6 +1344,7 @@ macro_rules! int_impl {
         #[inline(always)]
         #[track_caller]
         #[requires(rhs < <$ActualT>::BITS)]
+        #[requires(rhs < <$ActualT>::BITS)]
         pub const unsafe fn unchecked_shl(self, rhs: u32) -> Self {
             assert_unsafe_precondition!(
                 check_language_ub,
@@ -1452,6 +1461,7 @@ macro_rules! int_impl {
         #[inline(always)]
         #[track_caller]
         #[requires(rhs < <$ActualT>::BITS)] // i.e. requires the right hand side of the shift (rhs) to be less than the number of bits in the type. This prevents undefined behavior.
+        #[requires(rhs < <$ActualT>::BITS)]
         pub const unsafe fn unchecked_shr(self, rhs: u32) -> Self {
             assert_unsafe_precondition!(
                 check_language_ub,

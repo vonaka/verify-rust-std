@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::mem::{self, SizedTypeProperties};
@@ -34,6 +43,10 @@ pub struct Drain<
 }
 
 impl<'a, T, A: Allocator> Drain<'a, T, A> {
+    #[requires(drain_start <= deque.len())]
+    #[requires(drain_len <= deque.len())]
+    #[requires(drain_start + drain_len <= deque.len())]
+    #[cfg_attr(kani, kani::modifies(deque))]
     pub(super) unsafe fn new(
         deque: &'a mut VecDeque<T, A>,
         drain_start: usize,
@@ -53,6 +66,8 @@ impl<'a, T, A: Allocator> Drain<'a, T, A> {
 
     // Only returns pointers to the slices, as that's all we need
     // to drop them. May only be called if `self.remaining != 0`.
+    #[requires(self.remaining != 0)]
+    #[cfg_attr(kani, kani::modifies(self))]
     unsafe fn as_slices(&self) -> (*mut [T], *mut [T]) {
         unsafe {
             let deque = self.deque.as_ref();

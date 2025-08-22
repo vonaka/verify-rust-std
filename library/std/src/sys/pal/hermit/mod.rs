@@ -13,8 +13,17 @@
 //! compiling for wasm. That way it's a compile time error for something that's
 //! guaranteed to be a runtime error!
 
+#![feature(ub_checks)]
 #![deny(unsafe_op_in_unsafe_fn)]
 #![allow(missing_docs, nonstandard_style)]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::io::ErrorKind;
 use crate::os::hermit::hermit_abi;
@@ -45,6 +54,9 @@ pub fn abort_internal() -> ! {
 
 // SAFETY: must be called only once during runtime initialization.
 // NOTE: this is not guaranteed to run, for example when Rust code is called externally.
+#[requires(argc >= 0)]
+#[requires(argc == 0 || can_dereference(argv))]
+#[requires(argc == 0 || can_dereference(argv.add((argc - 1) as usize)))]
 pub unsafe fn init(argc: isize, argv: *const *const u8, _sigpipe: u8) {
     unsafe {
         crate::sys::args::init(argc, argv);
@@ -53,10 +65,14 @@ pub unsafe fn init(argc: isize, argv: *const *const u8, _sigpipe: u8) {
 
 // SAFETY: must be called only once during runtime cleanup.
 // NOTE: this is not guaranteed to run, for example when the program aborts.
+#[requires(true)]
 pub unsafe fn cleanup() {}
 
 #[cfg(not(test))]
 #[unsafe(no_mangle)]
+#[requires(can_dereference(argv))]
+#[requires(can_dereference(env))]
+#[requires(argc >= 0)]
 pub unsafe extern "C" fn runtime_entry(
     argc: i32,
     argv: *const *const c_char,

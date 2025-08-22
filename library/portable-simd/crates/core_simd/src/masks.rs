@@ -1,5 +1,6 @@
 //! Types and traits associated with masking elements of vectors.
 //! Types representing
+#![feature(ub_checks)]
 #![allow(non_camel_case_types)]
 
 #[cfg_attr(
@@ -11,6 +12,14 @@
     path = "masks/bitmask.rs"
 )]
 mod mask_impl;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::simd::{LaneCount, Simd, SimdCast, SimdElement, SupportedLaneCount};
 use core::cmp::Ordering;
@@ -187,6 +196,7 @@ where
     /// All elements must be either 0 or -1.
     #[inline]
     #[must_use = "method returns a new mask and does not mutate the original value"]
+    #[requires(<T as Sealed>::valid(value))]
     pub unsafe fn from_int_unchecked(value: Simd<T, N>) -> Self {
         // Safety: the caller must confirm this invariant
         unsafe {
@@ -230,6 +240,7 @@ where
     /// `index` must be less than `self.len()`.
     #[inline]
     #[must_use = "method returns a new bool and does not mutate the original value"]
+    #[requires(index < N)]
     pub unsafe fn test_unchecked(&self, index: usize) -> bool {
         // Safety: the caller must confirm this invariant
         unsafe { self.0.test_unchecked(index) }
@@ -253,6 +264,8 @@ where
     /// # Safety
     /// `index` must be less than `self.len()`.
     #[inline]
+    #[requires(index < N)]
+    #[cfg_attr(kani, kani::modifies(self))]
     pub unsafe fn set_unchecked(&mut self, index: usize, value: bool) {
         // Safety: the caller must confirm this invariant
         unsafe {

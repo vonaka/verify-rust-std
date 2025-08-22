@@ -533,6 +533,12 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::iter::{self, FusedIterator, TrustedLen};
 use crate::marker::Destruct;
 use crate::ops::{self, ControlFlow, Deref, DerefMut};
@@ -1636,6 +1642,7 @@ impl<T, E> Result<T, E> {
     #[inline]
     #[track_caller]
     #[stable(feature = "option_result_unwrap_unchecked", since = "1.58.0")]
+    #[requires(self.is_ok())]
     pub unsafe fn unwrap_unchecked(self) -> T {
         match self {
             Ok(t) => t,

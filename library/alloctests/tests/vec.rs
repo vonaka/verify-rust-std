@@ -1,3 +1,5 @@
+use core::ub_checks::Invariant;
+
 use core::alloc::{Allocator, Layout};
 use core::num::NonZero;
 use core::ptr::NonNull;
@@ -2703,4 +2705,11 @@ fn vec_null_ptr_roundtrip() {
     let roundtripped = vec![zero; 1].pop().unwrap();
     let new = roundtripped.with_addr(ptr.addr());
     unsafe { new.read() };
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T> Invariant for Vec<T> {
+    fn is_safe(&self) -> bool {
+        self.len() <= self.capacity()
+    }
 }

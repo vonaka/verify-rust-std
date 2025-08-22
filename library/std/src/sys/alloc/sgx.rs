@@ -1,3 +1,12 @@
+#![feature(ub_checks)]
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::alloc::{GlobalAlloc, Layout, System};
 use crate::ptr;
 use crate::sync::atomic::{Atomic, AtomicBool, Ordering};
@@ -60,24 +69,39 @@ unsafe impl dlmalloc::Allocator for Sgx {
 #[stable(feature = "alloc_system_type", since = "1.28.0")]
 unsafe impl GlobalAlloc for System {
     #[inline]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // SAFETY: the caller must uphold the safety contract for `malloc`
         unsafe { DLMALLOC.lock().malloc(layout.size(), layout.align()) }
     }
 
     #[inline]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         // SAFETY: the caller must uphold the safety contract for `malloc`
         unsafe { DLMALLOC.lock().calloc(layout.size(), layout.align()) }
     }
 
     #[inline]
+    #[requires(can_dereference(ptr))]
+    #[requires(ptr as usize % layout.align() == 0)]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
+    #[cfg_attr(kani, kani::modifies(ptr))]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         // SAFETY: the caller must uphold the safety contract for `malloc`
         unsafe { DLMALLOC.lock().free(ptr, layout.size(), layout.align()) }
     }
 
     #[inline]
+    #[requires(can_dereference(ptr) && can_read_unaligned(ptr.add(layout.size() - 1)))]
+    #[requires(ptr as usize % layout.align() == 0)]
+    #[requires(layout.size() <= isize::MAX as usize)]
+    #[requires(new_size <= isize::MAX as usize)]
+    #[requires(layout.align().is_power_of_two())]
+    #[cfg_attr(kani, kani::modifies(ptr))]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         // SAFETY: the caller must uphold the safety contract for `malloc`
         unsafe { DLMALLOC.lock().realloc(ptr, layout.size(), layout.align(), new_size) }
@@ -88,12 +112,19 @@ unsafe impl GlobalAlloc for System {
 // in pre-link args for the target specification, so keep that in sync.
 #[cfg(not(test))]
 #[unsafe(no_mangle)]
+#[requires(size <= isize::MAX as usize)]
+#[requires(align.is_power_of_two())]
 pub unsafe extern "C" fn __rust_c_alloc(size: usize, align: usize) -> *mut u8 {
     unsafe { crate::alloc::alloc(Layout::from_size_align_unchecked(size, align)) }
 }
 
 #[cfg(not(test))]
 #[unsafe(no_mangle)]
+#[requires(can_dereference(ptr))]
+#[requires(ptr as usize % align == 0)]
+#[requires(size <= isize::MAX as usize)]
+#[requires(align.is_power_of_two())]
+#[cfg_attr(kani, kani::modifies(ptr))]
 pub unsafe extern "C" fn __rust_c_dealloc(ptr: *mut u8, size: usize, align: usize) {
     unsafe { crate::alloc::dealloc(ptr, Layout::from_size_align_unchecked(size, align)) }
 }

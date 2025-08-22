@@ -1,5 +1,13 @@
 #![unstable(feature = "core_io_borrowed_buf", issue = "117693")]
 
+use crate::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::fmt::{self, Debug, Formatter};
 use crate::mem::{self, MaybeUninit};
 use crate::{cmp, ptr};
@@ -175,6 +183,7 @@ impl<'data> BorrowedBuf<'data> {
     ///
     /// The caller must ensure that the first `n` unfilled bytes of the buffer have already been initialized.
     #[inline]
+    #[requires(n <= self.capacity())]
     pub unsafe fn set_init(&mut self, n: usize) -> &mut Self {
         self.init = cmp::max(self.init, n);
         self
@@ -291,6 +300,7 @@ impl<'a> BorrowedCursor<'a> {
     /// The caller must ensure that the first `n` bytes of the cursor have been properly
     /// initialised.
     #[inline]
+    #[requires(n <= self.buf.init - self.buf.filled)]
     pub unsafe fn advance_unchecked(&mut self, n: usize) -> &mut Self {
         self.buf.filled += n;
         self.buf.init = cmp::max(self.buf.init, self.buf.filled);
@@ -322,6 +332,7 @@ impl<'a> BorrowedCursor<'a> {
     ///
     /// The caller must ensure that the first `n` bytes of the buffer have already been initialized.
     #[inline]
+    #[requires(self.buf.filled + n <= self.buf.capacity())]
     pub unsafe fn set_init(&mut self, n: usize) -> &mut Self {
         self.buf.init = cmp::max(self.buf.init, self.buf.filled + n);
         self
@@ -380,5 +391,19 @@ impl<'a> BorrowedCursor<'a> {
         self.buf.filled += filled;
 
         res
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<'data> Invariant for BorrowedBuf<'data> {
+    fn is_safe(&self) -> bool {
+        self.filled <= self.init && self.init <= self.capacity()
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<'a> Invariant for BorrowedCursor<'a> {
+    fn is_safe(&self) -> bool {
+        self.buf.filled <= self.buf.init && self.buf.init <= self.buf.capacity()
     }
 }

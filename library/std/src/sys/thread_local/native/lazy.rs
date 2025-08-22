@@ -1,3 +1,14 @@
+#![feature(ub_checks)]
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::cell::{Cell, UnsafeCell};
 use crate::mem::MaybeUninit;
 use crate::ptr;
@@ -53,6 +64,8 @@ where
     /// # Safety
     /// The `self` reference must remain valid until the TLS destructor is run.
     #[inline]
+    #[cfg_attr(kani, kani::modifies(&self.state))]
+    #[cfg_attr(kani, kani::modifies(&self.value))]
     pub unsafe fn get_or_init(&self, i: Option<&mut Option<T>>, f: impl FnOnce() -> T) -> *const T {
         if let State::Alive = self.state.get() {
             self.value.get().cast()
@@ -64,6 +77,8 @@ where
     /// # Safety
     /// The `self` reference must remain valid until the TLS destructor is run.
     #[cold]
+    #[cfg_attr(kani, kani::modifies(&self.state))]
+    #[cfg_attr(kani, kani::modifies(&self.value))]
     unsafe fn get_or_init_slow(
         &self,
         i: Option<&mut Option<T>>,
@@ -107,6 +122,8 @@ where
 /// * Must only be called at thread destruction.
 /// * `ptr` must point to an instance of `Storage<T, ()>` and be valid for
 ///   accessing that instance.
+#[requires(ptr as usize != 0)]
+#[requires(can_dereference(ptr as *const Storage<T, ()>))]
 unsafe extern "C" fn destroy<T>(ptr: *mut u8) {
     // Print a nice abort message if a panic occurs.
     abort_on_dtor_unwind(|| {
@@ -119,4 +136,12 @@ unsafe extern "C" fn destroy<T>(ptr: *mut u8) {
             unsafe { (*storage.value.get()).assume_init_drop() }
         }
     })
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<T, D> Invariant for Storage<T, D> {
+    fn is_safe(&self) -> bool {
+        can_dereference(&self.state as *const Cell<State<D>>) && 
+        can_dereference(&self.value as *const UnsafeCell<MaybeUninit<T>>)
+    }
 }

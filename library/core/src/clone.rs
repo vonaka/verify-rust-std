@@ -36,6 +36,12 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
+
 use crate::marker::{Destruct, PointeeSized};
 
 mod uninit;
@@ -515,6 +521,8 @@ pub unsafe trait CloneToUninit {
 #[unstable(feature = "clone_to_uninit", issue = "126799")]
 unsafe impl<T: Clone> CloneToUninit for T {
     #[inline]
+    #[requires(can_write(dest))]
+    #[requires(dest as usize % crate::mem::align_of_val(self) == 0)]
     unsafe fn clone_to_uninit(&self, dest: *mut u8) {
         // SAFETY: we're calling a specialization with the same contract
         unsafe { <T as self::uninit::CopySpec>::clone_one(self, dest.cast::<T>()) }

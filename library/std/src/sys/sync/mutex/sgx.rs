@@ -1,3 +1,14 @@
+#![feature(ub_checks)]
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
+
 use crate::sys::pal::waitqueue::{SpinMutex, WaitQueue, WaitVariable, try_lock_or_false};
 use crate::sys::sync::OnceBox;
 
@@ -30,6 +41,7 @@ impl Mutex {
     }
 
     #[inline]
+    #[requires(self.inner.get().is_some())]
     pub unsafe fn unlock(&self) {
         // SAFETY: the mutex was locked by the current thread, so it has been
         // initialized already.
@@ -53,5 +65,12 @@ impl Mutex {
             *guard.lock_var_mut() = true;
             true
         }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for Mutex {
+    fn is_safe(&self) -> bool {
+        self.inner.get().is_some()
     }
 }

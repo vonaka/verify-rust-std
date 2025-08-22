@@ -1,3 +1,5 @@
+use crate::ub_checks::Invariant;
+
 use crate::mem::MaybeUninit;
 use crate::{fmt, str};
 
@@ -35,5 +37,12 @@ impl<const SIZE: usize> fmt::Write for DisplayBuffer<SIZE> {
         } else {
             Err(fmt::Error)
         }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<const SIZE: usize> Invariant for DisplayBuffer<SIZE> {
+    fn is_safe(&self) -> bool {
+        self.len <= SIZE
     }
 }

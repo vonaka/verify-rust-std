@@ -10,7 +10,18 @@
 //! provided by libdispatch, as the underlying Mach semaphore is only dubiously
 //! public.
 
+#![feature(ub_checks)]
 #![allow(non_camel_case_types)]
+
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use crate::pin::Pin;
 use crate::sync::atomic::Ordering::{Acquire, Release};
@@ -45,6 +56,7 @@ unsafe impl Sync for Parker {}
 unsafe impl Send for Parker {}
 
 impl Parker {
+    #[requires(!parker.is_null())]
     pub unsafe fn new_in_place(parker: *mut Parker) {
         let semaphore = dispatch_semaphore_create(0);
         assert!(
@@ -55,6 +67,8 @@ impl Parker {
     }
 
     // Does not need `Pin`, but other implementation do.
+    #[requires(!self.semaphore.is_null())]
+    #[cfg_attr(kani, kani::modifies(&self.state))]
     pub unsafe fn park(self: Pin<&Self>) {
         // The semaphore counter must be zero at this point, because unparking
         // threads will not actually increase it until we signalled that we
@@ -82,6 +96,9 @@ impl Parker {
     }
 
     // Does not need `Pin`, but other implementation do.
+    #[requires(!self.semaphore.is_null())]
+    #[requires(dur.as_nanos() <= i64::MAX as u128)]
+    #[cfg_attr(kani, kani::modifies(&self.state))]
     pub unsafe fn park_timeout(self: Pin<&Self>, dur: Duration) {
         if self.state.fetch_sub(1, Acquire) == NOTIFIED {
             return;
@@ -119,6 +136,7 @@ impl Parker {
 }
 
 impl Drop for Parker {
+    #[requires(!self.semaphore.is_null())]
     fn drop(&mut self) {
         // SAFETY:
         // We always ensure that the semaphore count is reset, so this will
@@ -126,5 +144,12 @@ impl Drop for Parker {
         unsafe {
             dispatch_release(self.semaphore);
         }
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for Parker {
+    fn is_safe(&self) -> bool {
+        !self.semaphore.is_null()
     }
 }

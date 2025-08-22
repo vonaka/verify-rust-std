@@ -35,7 +35,16 @@
 //!
 //! Once stack has been unwound down to the handler frame level, unwinding stops
 //! and the last personality routine transfers control to the catch block.
+#![feature(ub_checks)]
 #![forbid(unsafe_op_in_unsafe_fn)]
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use unwind as uw;
 
@@ -107,6 +116,12 @@ cfg_select! {
         ///
         /// [armeabi-eh]: https://web.archive.org/web/20190728160938/https://infocenter.arm.com/help/topic/com.arm.doc.ihi0038b/IHI0038B_ehabi.pdf
         #[lang = "eh_personality"]
+        #[requires(can_dereference(ExceptionInfo))]
+        #[requires(can_dereference(contextRecord))]
+        #[requires(can_dereference(dispatcherContext))]
+        #[requires(establisherFrame != core::ptr::null_mut())]
+        #[cfg_attr(kani, kani::modifies(contextRecord))]
+        #[cfg_attr(kani, kani::modifies(dispatcherContext))]
         unsafe extern "C" fn rust_eh_personality(
             state: uw::_Unwind_State,
             exception_object: *mut uw::_Unwind_Exception,
@@ -181,6 +196,9 @@ cfg_select! {
 
                 // On ARM EHABI the personality routine is responsible for actually
                 // unwinding a single stack frame before returning (ARM EHABI Sec. 6.1).
+                #[requires(can_dereference(exception_object))]
+                #[requires(can_dereference(context))]
+                #[cfg_attr(kani, kani::modifies(context))]
                 unsafe fn continue_unwind(
                     exception_object: *mut uw::_Unwind_Exception,
                     context: *mut uw::_Unwind_Context,
@@ -206,6 +224,10 @@ cfg_select! {
     _ => {
         /// Default personality routine, which is used directly on most targets
         /// and indirectly on Windows x86_64 and AArch64 via SEH.
+        #[requires(version == 1)]
+        #[requires(can_dereference(context))]
+        #[requires(can_dereference(exception_object))]
+        #[cfg_attr(kani, kani::modifies(context))]
         unsafe extern "C" fn rust_eh_personality_impl(
             version: c_int,
             actions: uw::_Unwind_Action,
@@ -320,6 +342,8 @@ cfg_select! {
     }
 }
 
+#[requires(can_dereference(context))]
+#[cfg_attr(kani, kani::modifies(context))]
 unsafe fn find_eh_action(context: *mut uw::_Unwind_Context) -> Result<EHAction, ()> {
     unsafe {
         let lsda = uw::_Unwind_GetLanguageSpecificData(context) as *const u8;

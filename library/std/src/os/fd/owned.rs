@@ -1,7 +1,18 @@
 //! Owned and borrowed Unix-like file descriptors.
 
+#![feature(ub_checks)]
 #![stable(feature = "io_safety", since = "1.63.0")]
 #![deny(unsafe_op_in_unsafe_fn)]
+
+use core::ub_checks::Invariant;
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use super::raw::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(not(target_os = "trusty"))]
@@ -78,6 +89,7 @@ impl BorrowedFd<'_> {
     #[track_caller]
     #[rustc_const_stable(feature = "io_safety", since = "1.63.0")]
     #[stable(feature = "io_safety", since = "1.63.0")]
+    #[requires(fd != -1)]
     pub const unsafe fn borrow_raw(fd: RawFd) -> Self {
         Self { fd: ValidRawFd::new(fd).expect("fd != -1"), _phantom: PhantomData }
     }
@@ -161,6 +173,7 @@ impl FromRawFd for OwnedFd {
     /// [io-safety]: io#io-safety
     #[inline]
     #[track_caller]
+    #[requires(fd != -1)]
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self { fd: ValidRawFd::new(fd).expect("fd != -1") }
     }
@@ -550,5 +563,19 @@ impl From<OwnedFd> for io::PipeReader {
 impl From<OwnedFd> for io::PipeWriter {
     fn from(owned_fd: OwnedFd) -> Self {
         Self(FromInner::from_inner(owned_fd))
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl<'fd> Invariant for BorrowedFd<'fd> {
+    fn is_safe(&self) -> bool {
+        self.fd.as_inner() != -1
+    }
+}
+
+#[unstable(feature = "ub_checks", issue = "none")]
+impl Invariant for OwnedFd {
+    fn is_safe(&self) -> bool {
+        self.fd.as_inner() != -1
     }
 }

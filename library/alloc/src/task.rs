@@ -1,3 +1,4 @@
+#![feature(ub_checks)]
 #![stable(feature = "wake_trait", since = "1.51.0")]
 
 //! Types and Traits for working with asynchronous tasks.
@@ -6,6 +7,14 @@
 //! on platforms that support atomic loads and stores of pointers.
 //! This may be detected at compile time using
 //! `#[cfg(target_has_atomic = "ptr")]`.
+
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature = "kani", issue = "none")]
+use core::kani;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 
 use core::mem::ManuallyDrop;
 #[cfg(target_has_atomic = "ptr")]
@@ -145,6 +154,7 @@ fn raw_waker<W: Wake + Send + Sync + 'static>(waker: Arc<W>) -> RawWaker {
     // the vtable pointers, rather than comparing all four function pointers
     // within the vtables.
     #[inline(always)]
+    #[requires(waker != core::ptr::null())]
     unsafe fn clone_waker<W: Wake + Send + Sync + 'static>(waker: *const ()) -> RawWaker {
         unsafe { Arc::increment_strong_count(waker as *const W) };
         RawWaker::new(
@@ -154,18 +164,21 @@ fn raw_waker<W: Wake + Send + Sync + 'static>(waker: Arc<W>) -> RawWaker {
     }
 
     // Wake by value, moving the Arc into the Wake::wake function
+    #[requires(waker != core::ptr::null())]
     unsafe fn wake<W: Wake + Send + Sync + 'static>(waker: *const ()) {
         let waker = unsafe { Arc::from_raw(waker as *const W) };
         <W as Wake>::wake(waker);
     }
 
     // Wake by reference, wrap the waker in ManuallyDrop to avoid dropping it
+    #[requires(waker != core::ptr::null())]
     unsafe fn wake_by_ref<W: Wake + Send + Sync + 'static>(waker: *const ()) {
         let waker = unsafe { ManuallyDrop::new(Arc::from_raw(waker as *const W)) };
         <W as Wake>::wake_by_ref(&waker);
     }
 
     // Decrement the reference count of the Arc on drop
+    #[requires(waker != core::ptr::null())]
     unsafe fn drop_waker<W: Wake + Send + Sync + 'static>(waker: *const ()) {
         unsafe { Arc::decrement_strong_count(waker as *const W) };
     }
@@ -318,6 +331,7 @@ fn local_raw_waker<W: LocalWake + 'static>(waker: Rc<W>) -> RawWaker {
     // Refer to the comment on raw_waker's clone_waker regarding why this is
     // always inline.
     #[inline(always)]
+    #[requires(waker != core::ptr::null())]
     unsafe fn clone_waker<W: LocalWake + 'static>(waker: *const ()) -> RawWaker {
         unsafe { Rc::increment_strong_count(waker as *const W) };
         RawWaker::new(
@@ -327,18 +341,21 @@ fn local_raw_waker<W: LocalWake + 'static>(waker: Rc<W>) -> RawWaker {
     }
 
     // Wake by value, moving the Rc into the LocalWake::wake function
+    #[requires(waker != core::ptr::null())]
     unsafe fn wake<W: LocalWake + 'static>(waker: *const ()) {
         let waker = unsafe { Rc::from_raw(waker as *const W) };
         <W as LocalWake>::wake(waker);
     }
 
     // Wake by reference, wrap the waker in ManuallyDrop to avoid dropping it
+    #[requires(waker != core::ptr::null())]
     unsafe fn wake_by_ref<W: LocalWake + 'static>(waker: *const ()) {
         let waker = unsafe { ManuallyDrop::new(Rc::from_raw(waker as *const W)) };
         <W as LocalWake>::wake_by_ref(&waker);
     }
 
     // Decrement the reference count of the Rc on drop
+    #[requires(waker != core::ptr::null())]
     unsafe fn drop_waker<W: LocalWake + 'static>(waker: *const ()) {
         unsafe { Rc::decrement_strong_count(waker as *const W) };
     }
