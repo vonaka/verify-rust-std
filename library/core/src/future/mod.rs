@@ -9,11 +9,11 @@
 //! [`await`]: ../../std/keyword.await.html
 //! [async book]: https://rust-lang.github.io/async-book/
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::ptr::NonNull;
 use crate::task::Context;

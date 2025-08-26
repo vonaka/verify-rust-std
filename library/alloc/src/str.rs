@@ -8,13 +8,13 @@
 // It's cleaner to just turn off the unused_imports warning than to fix them.
 #![allow(unused_imports)]
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use core::borrow::{Borrow, BorrowMut};
 use core::iter::FusedIterator;

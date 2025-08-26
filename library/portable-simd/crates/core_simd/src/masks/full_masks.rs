@@ -1,13 +1,13 @@
 //! Masks that take up full SIMD vector registers.
 
 #![feature(ub_checks)]
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::simd::{LaneCount, MaskElement, Simd, SupportedLaneCount};
 
@@ -162,11 +162,7 @@ where
         let bitmask: U = unsafe { core::intrinsics::simd::simd_bitmask(resized) };
 
         // LLVM assumes bit order should match endianness
-        if cfg!(target_endian = "big") {
-            bitmask.reverse_bits(M)
-        } else {
-            bitmask
-        }
+        if cfg!(target_endian = "big") { bitmask.reverse_bits(M) } else { bitmask }
     }
 
     #[inline]
@@ -175,11 +171,7 @@ where
         LaneCount<M>: SupportedLaneCount,
     {
         // LLVM assumes bit order should match endianness
-        let bitmask = if cfg!(target_endian = "big") {
-            bitmask.reverse_bits(M)
-        } else {
-            bitmask
-        };
+        let bitmask = if cfg!(target_endian = "big") { bitmask.reverse_bits(M) } else { bitmask };
 
         // SAFETY: `mask` is the correct bitmask type for a u64 bitmask
         let mask: Simd<T, M> = unsafe {

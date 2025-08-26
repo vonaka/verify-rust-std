@@ -10,13 +10,13 @@
 //! - More information about protocols can be found [here](https://edk2-docs.gitbook.io/edk-ii-uefi-driver-writer-s-guide/3_foundation/36_protocols_and_handles)
 
 #![feature(ub_checks)]
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use r_efi::efi::{self, Guid};
 use r_efi::protocols::{device_path, device_path_to_text, service_binding, shell};

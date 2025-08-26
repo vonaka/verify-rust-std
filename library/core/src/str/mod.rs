@@ -13,11 +13,11 @@ mod iter;
 mod traits;
 mod validations;
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use self::pattern::{DoubleEndedSearcher, Pattern, ReverseSearcher, Searcher};
 use crate::char::{self, EscapeDebugExtArgs};

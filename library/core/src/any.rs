@@ -86,11 +86,11 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::{fmt, hash, intrinsics};
 

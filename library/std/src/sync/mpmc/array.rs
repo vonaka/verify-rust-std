@@ -9,13 +9,13 @@
 //!   - <https://docs.google.com/document/d/1yIAYmbvL3JxOKOjuCyon7JhW4cSv1wy5hC0ApeGMV9s/pub>
 
 #![feature(ub_checks)]
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use super::context::Context;
 use super::error::*;

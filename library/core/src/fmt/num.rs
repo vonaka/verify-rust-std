@@ -1,10 +1,10 @@
 //! Integer and floating-point number formatting
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::fmt::NumBuffer;
 use crate::mem::MaybeUninit;

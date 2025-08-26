@@ -1,8 +1,8 @@
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::mem::{MaybeUninit, SizedTypeProperties};
 use crate::ptr;

@@ -1,10 +1,10 @@
 //! Free functions to create `&[T]` and `&mut [T]`.
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::ops::Range;
 use crate::{array, ptr, ub_checks};

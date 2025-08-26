@@ -17,13 +17,13 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![allow(missing_docs, nonstandard_style)]
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::io::ErrorKind;
 use crate::os::hermit::hermit_abi;

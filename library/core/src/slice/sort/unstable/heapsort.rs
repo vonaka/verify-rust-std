@@ -1,10 +1,10 @@
 //! This module contains a branchless heapsort as fallback for unstable quicksort.
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::{cmp, intrinsics, ptr};
 

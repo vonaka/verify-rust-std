@@ -1,13 +1,13 @@
 #![feature(ub_checks)]
 use core::ub_checks::Invariant;
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::cell::{Cell, UnsafeCell};
 use crate::mem::MaybeUninit;
@@ -141,7 +141,7 @@ unsafe extern "C" fn destroy<T>(ptr: *mut u8) {
 #[unstable(feature = "ub_checks", issue = "none")]
 impl<T, D> Invariant for Storage<T, D> {
     fn is_safe(&self) -> bool {
-        can_dereference(&self.state as *const Cell<State<D>>) && 
-        can_dereference(&self.value as *const UnsafeCell<MaybeUninit<T>>)
+        can_dereference(&self.state as *const Cell<State<D>>)
+            && can_dereference(&self.value as *const UnsafeCell<MaybeUninit<T>>)
     }
 }

@@ -1,11 +1,11 @@
 #![doc = include_str!("error.md")]
 #![stable(feature = "error_in_core", since = "1.81.0")]
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::any::TypeId;
 use crate::fmt::{self, Debug, Display, Formatter};

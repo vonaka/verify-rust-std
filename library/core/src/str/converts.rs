@@ -1,10 +1,10 @@
 //! Ways to create a `str` from bytes slice.
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use super::Utf8Error;
 use super::validations::run_utf8_validation;

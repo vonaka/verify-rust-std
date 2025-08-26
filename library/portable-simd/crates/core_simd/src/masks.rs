@@ -7,19 +7,16 @@
     not(all(target_arch = "x86_64", target_feature = "avx512f")),
     path = "masks/full_masks.rs"
 )]
-#[cfg_attr(
-    all(target_arch = "x86_64", target_feature = "avx512f"),
-    path = "masks/bitmask.rs"
-)]
+#[cfg_attr(all(target_arch = "x86_64", target_feature = "avx512f"), path = "masks/bitmask.rs")]
 mod mask_impl;
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::simd::{LaneCount, Simd, SimdCast, SimdElement, SupportedLaneCount};
 use core::cmp::Ordering;
@@ -377,11 +374,7 @@ where
         // Safety: the return value is the unsigned version of T
         let min_index: T = unsafe { core::mem::transmute_copy(&min_index) };
 
-        if min_index.eq(T::TRUE) {
-            None
-        } else {
-            Some(min_index.to_usize())
-        }
+        if min_index.eq(T::TRUE) { None } else { Some(min_index.to_usize()) }
     }
 }
 
@@ -448,9 +441,7 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries((0..N).map(|i| self.test(i)))
-            .finish()
+        f.debug_list().entries((0..N).map(|i| self.test(i))).finish()
     }
 }
 

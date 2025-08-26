@@ -1,10 +1,10 @@
 //! Helper code for character escaping.
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::ascii;
 use crate::fmt::{self, Write};

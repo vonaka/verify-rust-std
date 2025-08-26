@@ -6,13 +6,13 @@
 
 use core::ub_checks::Invariant;
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use super::raw::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(not(target_os = "trusty"))]

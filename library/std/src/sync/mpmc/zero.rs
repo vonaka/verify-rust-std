@@ -3,13 +3,13 @@
 //! This kind of channel is also known as *rendezvous* channel.
 
 #![feature(ub_checks)]
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use super::context::Context;
 use super::error::*;

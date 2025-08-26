@@ -1,10 +1,10 @@
 use crate::ub_checks::Invariant;
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::cell::UnsafeCell;
 use crate::{fmt, mem};

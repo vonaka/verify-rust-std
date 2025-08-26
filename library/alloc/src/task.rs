@@ -8,13 +8,13 @@
 //! This may be detected at compile time using
 //! `#[cfg(target_has_atomic = "ptr")]`.
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
+use safety::{ensures, requires};
 
 use core::mem::ManuallyDrop;
 #[cfg(target_has_atomic = "ptr")]

@@ -2,11 +2,11 @@
 
 #![allow(deprecated)] // the types in this module are deprecated
 
-use safety::{ensures,requires};
 #[cfg(kani)]
 use crate::kani;
 #[allow(unused_imports)]
 use crate::ub_checks::*;
+use safety::{ensures, requires};
 
 use crate::marker::PhantomData;
 use crate::{cmp, ptr};
