@@ -728,21 +728,12 @@ mod verify {
     #[kani::proof_for_contract(from_boxed_utf8_unchecked)]
     fn from_boxed_utf8_unchecked_contract() {
         // Create a small array of valid UTF-8 bytes (ASCII "hello")
-        let valid_utf8_bytes = [b'h', b'e', b'l', b'l', b'o'];
+        let valid_utf8_bytes = [kani::any(), kani::any(), kani::any(), kani::any(), kani::any()];
 
         // Create a Box<[u8]> from the array
         let boxed_bytes = Box::new(valid_utf8_bytes);
 
         // Call the function being verified
         let _boxed_str = unsafe { from_boxed_utf8_unchecked(boxed_bytes) };
-
-        // Create another array with non-ASCII but valid UTF-8 sequence
-        // UTF-8 encoding of "helloé"
-        let valid_utf8_bytes_2 = [b'h', b'e', b'l', b'l', b'o', 0xC3, 0xA9];
-
-        let boxed_bytes_2 = Box::new(valid_utf8_bytes_2);
-
-        // Call the function being verified
-        let _boxed_str_2 = unsafe { from_boxed_utf8_unchecked(boxed_bytes_2) };
     }
 }
