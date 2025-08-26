@@ -1,15 +1,12 @@
 #![feature(ub_checks)]
-use core::ub_checks::Invariant;
-
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
+use core::num::NonZero;
+use core::ub_checks::Invariant;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
-
-use core::num::NonZero;
 use std::assert_matches::assert_matches;
 use std::collections::TryReserveErrorKind::*;
 use std::collections::VecDeque;
@@ -20,6 +17,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use Taggy::*;
 use Taggypar::*;
+use safety::{ensures, requires};
 
 use crate::hash;
 use crate::testing::macros::struct_with_counted_drop;

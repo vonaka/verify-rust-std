@@ -16,10 +16,10 @@ use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
 
 use r_efi::efi::{self, Guid};
 use r_efi::protocols::{device_path, device_path_to_text, service_binding, shell};
+use safety::{ensures, requires};
 
 use crate::ffi::{OsStr, OsString};
 use crate::io::{self, const_error};

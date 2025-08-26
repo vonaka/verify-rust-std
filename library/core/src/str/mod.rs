@@ -13,17 +13,17 @@ mod iter;
 mod traits;
 mod validations;
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use self::pattern::{DoubleEndedSearcher, Pattern, ReverseSearcher, Searcher};
 use crate::char::{self, EscapeDebugExtArgs};
+#[cfg(kani)]
+use crate::kani;
 use crate::ops::Range;
 use crate::slice::{self, SliceIndex};
 use crate::ub_checks::assert_unsafe_precondition;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{ascii, mem};
 
 pub mod pattern;

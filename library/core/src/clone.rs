@@ -36,13 +36,13 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::marker::{Destruct, PointeeSized};
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 
 mod uninit;
 

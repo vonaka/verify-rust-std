@@ -5,15 +5,15 @@
 //! [^1]: Florian Loitsch. 2010. Printing floating-point numbers quickly and
 //!   accurately with integers. SIGPLAN Not. 45, 6 (June 2010), 233-243.
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::MaybeUninit;
 use crate::num::diy_float::Fp;
 use crate::num::flt2dec::{Decoded, MAX_SIG_DIGITS, round_up};
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 
 // see the comments in `format_shortest_opt` for the rationale.
 #[doc(hidden)]

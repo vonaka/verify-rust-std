@@ -1,15 +1,14 @@
 #![unstable(feature = "core_io_borrowed_buf", issue = "117693")]
 
-use crate::ub_checks::Invariant;
-
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use crate::fmt::{self, Debug, Formatter};
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::{self, MaybeUninit};
+use crate::ub_checks::Invariant;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{cmp, ptr};
 
 /// A borrowed byte buffer which is incrementally filled and initialized.

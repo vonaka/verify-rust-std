@@ -13,17 +13,16 @@
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
+use core::panic::{Location, PanicPayload};
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
-
-use core::panic::{Location, PanicPayload};
 
 // make sure to use the stderr output configured
 // by libtest in the real copy of std
 #[cfg(test)]
 use realstd::io::try_set_output_capture;
+use safety::{ensures, requires};
 
 use crate::any::Any;
 #[cfg(not(test))]

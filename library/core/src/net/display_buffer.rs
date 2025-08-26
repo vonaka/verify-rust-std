@@ -1,6 +1,5 @@
-use crate::ub_checks::Invariant;
-
 use crate::mem::MaybeUninit;
+use crate::ub_checks::Invariant;
 use crate::{fmt, str};
 
 /// Used for slow path in `Display` implementations when alignment is required.

@@ -1,17 +1,17 @@
 #![feature(ub_checks)]
+use core::iter::FusedIterator;
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
-#[allow(unused_imports)]
-#[unstable(feature = "ub_checks", issue = "none")]
-use core::ub_checks::*;
-use safety::{ensures, requires};
-
-use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::mem::{self, SizedTypeProperties};
 use core::ptr::NonNull;
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 use core::{fmt, ptr};
+
+use safety::{ensures, requires};
 
 use super::VecDeque;
 use crate::alloc::{Allocator, Global};

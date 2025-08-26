@@ -1,16 +1,16 @@
 //! Helper code for character escaping.
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use crate::ascii;
 use crate::fmt::{self, Write};
+#[cfg(kani)]
+use crate::kani;
 use crate::marker::PhantomData;
 use crate::num::NonZero;
 use crate::ops::Range;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 
 const HEX_DIGITS: [ascii::Char; 16] = *b"0123456789abcdef".as_ascii().unwrap();
 

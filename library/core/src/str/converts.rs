@@ -1,13 +1,13 @@
 //! Ways to create a `str` from bytes slice.
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use super::Utf8Error;
 use super::validations::run_utf8_validation;
+#[cfg(kani)]
+use crate::kani;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{mem, ptr};
 
 /// Converts a slice of bytes to a string slice.

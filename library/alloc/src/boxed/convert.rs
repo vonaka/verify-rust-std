@@ -1,18 +1,18 @@
 #![feature(ub_checks)]
+use core::any::Any;
+use core::error::Error;
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
+use core::mem;
+use core::pin::Pin;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
-
-use core::any::Any;
-use core::error::Error;
-use core::mem;
-use core::pin::Pin;
 #[cfg(not(no_global_oom_handling))]
 use core::{fmt, ptr};
+
+use safety::{ensures, requires};
 
 use crate::alloc::Allocator;
 #[cfg(not(no_global_oom_handling))]

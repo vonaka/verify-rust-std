@@ -303,12 +303,12 @@ pub use core::io::{BorrowedBuf, BorrowedCursor};
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
+use core::slice::memchr;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
 
-use core::slice::memchr;
+use safety::{ensures, requires};
 
 #[stable(feature = "bufwriter_into_parts", since = "1.56.0")]
 pub use self::buffered::WriterPanicked;

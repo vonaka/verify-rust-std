@@ -9,14 +9,14 @@
 //! [`await`]: ../../std/keyword.await.html
 //! [async book]: https://rust-lang.github.io/async-book/
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::ptr::NonNull;
 use crate::task::Context;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 
 mod async_drop;
 mod future;

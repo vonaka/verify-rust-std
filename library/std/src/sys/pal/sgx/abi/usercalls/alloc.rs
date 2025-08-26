@@ -7,9 +7,9 @@ use core::kani;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
 
 use fortanix_sgx_abi::*;
+use safety::{ensures, requires};
 
 use super::super::mem::{is_enclave_range, is_user_range};
 use crate::arch::asm;

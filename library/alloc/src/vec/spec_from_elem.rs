@@ -1,15 +1,14 @@
 #![feature(ub_checks)]
-use core::ub_checks::Invariant;
-
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
+use core::ptr;
+use core::ub_checks::Invariant;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
 
-use core::ptr;
+use safety::{ensures, requires};
 
 use super::{IsZero, Vec};
 use crate::alloc::Allocator;

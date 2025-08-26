@@ -8,16 +8,11 @@
 // It's cleaner to just turn off the unused_imports warning than to fix them.
 #![allow(unused_imports)]
 
+use core::borrow::{Borrow, BorrowMut};
+use core::iter::FusedIterator;
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
-#[allow(unused_imports)]
-#[unstable(feature = "ub_checks", issue = "none")]
-use core::ub_checks::*;
-use safety::{ensures, requires};
-
-use core::borrow::{Borrow, BorrowMut};
-use core::iter::FusedIterator;
 use core::mem::MaybeUninit;
 #[stable(feature = "encode_utf16", since = "1.8.0")]
 pub use core::str::EncodeUtf16;
@@ -55,8 +50,13 @@ pub use core::str::{RSplitTerminator, SplitTerminator};
 pub use core::str::{Utf8Chunk, Utf8Chunks};
 #[unstable(feature = "str_from_raw_parts", issue = "119206")]
 pub use core::str::{from_raw_parts, from_raw_parts_mut};
+#[allow(unused_imports)]
+#[unstable(feature = "ub_checks", issue = "none")]
+use core::ub_checks::*;
 use core::unicode::conversions;
 use core::{mem, ptr};
+
+use safety::{ensures, requires};
 
 use crate::borrow::ToOwned;
 use crate::boxed::Box;

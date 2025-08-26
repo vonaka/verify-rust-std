@@ -1,8 +1,7 @@
-use core::ub_checks::Invariant;
-
 use core::alloc::{Allocator, Layout};
 use core::num::NonZero;
 use core::ptr::NonNull;
+use core::ub_checks::Invariant;
 use core::{assert_eq, assert_ne};
 use std::alloc::System;
 use std::assert_matches::assert_matches;

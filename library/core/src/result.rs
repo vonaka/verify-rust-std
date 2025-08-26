@@ -533,15 +533,15 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use crate::iter::{self, FusedIterator, TrustedLen};
+#[cfg(kani)]
+use crate::kani;
 use crate::marker::Destruct;
 use crate::ops::{self, ControlFlow, Deref, DerefMut};
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{convert, fmt, hint};
 
 /// `Result` is a type that represents either success ([`Ok`]) or failure ([`Err`]).

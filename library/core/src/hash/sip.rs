@@ -2,13 +2,13 @@
 
 #![allow(deprecated)] // the types in this module are deprecated
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::marker::PhantomData;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{cmp, ptr};
 
 /// An implementation of SipHash 1-3.

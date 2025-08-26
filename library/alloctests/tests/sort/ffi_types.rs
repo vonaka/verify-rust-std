@@ -1,5 +1,4 @@
 use core::ub_checks::Invariant;
-
 use std::cmp::Ordering;
 
 // Very large stack value.

@@ -1,15 +1,15 @@
 //! This module contains a stable quicksort and partition implementation.
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::{ManuallyDrop, MaybeUninit};
 use crate::slice::sort::shared::FreezeMarker;
 use crate::slice::sort::shared::pivot::choose_pivot;
 use crate::slice::sort::shared::smallsort::StableSmallSortTypeImpl;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{intrinsics, ptr};
 
 /// Sorts `v` recursively using quicksort.

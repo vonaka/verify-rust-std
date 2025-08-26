@@ -1,17 +1,15 @@
 #![feature(ub_checks)]
-use core::ub_checks::Invariant;
-
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
+use core::ub_checks::Invariant;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
-
 use std::collections::{VecDeque, vec_deque};
 use std::mem;
 
+use safety::{ensures, requires};
 use test::{Bencher, black_box};
 
 #[bench]

@@ -1,14 +1,14 @@
 //! Integer and floating-point number formatting
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use crate::fmt::NumBuffer;
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::MaybeUninit;
 use crate::num::fmt as numfmt;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{fmt, ptr, slice, str};
 
 /// Formatting of integers with a non-decimal radix.

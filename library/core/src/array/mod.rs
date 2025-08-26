@@ -4,12 +4,6 @@
 
 #![stable(feature = "core_array", since = "1.35.0")]
 
-use crate::ub_checks::Invariant;
-
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use crate::borrow::{Borrow, BorrowMut};
@@ -20,12 +14,17 @@ use crate::fmt;
 use crate::hash::{self, Hash};
 use crate::intrinsics::transmute_unchecked;
 use crate::iter::{UncheckedIterator, repeat_n};
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::{self, MaybeUninit};
 use crate::ops::{
     ChangeOutputType, ControlFlow, FromResidual, Index, IndexMut, NeverShortCircuit, Residual, Try,
 };
 use crate::ptr::{null, null_mut};
 use crate::slice::{Iter, IterMut};
+use crate::ub_checks::Invariant;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 
 mod ascii;
 mod drain;

@@ -1,11 +1,11 @@
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::{MaybeUninit, SizedTypeProperties};
 use crate::ptr;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 
 type BufType = [usize; 32];
 

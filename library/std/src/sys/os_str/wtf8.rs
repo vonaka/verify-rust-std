@@ -1,17 +1,16 @@
 //! The underlying OsString/OsStr implementation on Windows is a
 //! wrapper around the "WTF-8" encoding; see the `wtf8` module for more.
 #![feature(ub_checks)]
-use core::ub_checks::Invariant;
-
+use core::clone::CloneToUninit;
 #[cfg(kani)]
 #[unstable(feature = "kani", issue = "none")]
 use core::kani;
+use core::ub_checks::Invariant;
 #[allow(unused_imports)]
 #[unstable(feature = "ub_checks", issue = "none")]
 use core::ub_checks::*;
-use safety::{ensures, requires};
 
-use core::clone::CloneToUninit;
+use safety::{ensures, requires};
 
 use crate::borrow::Cow;
 use crate::collections::TryReserveError;

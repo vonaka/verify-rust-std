@@ -1,12 +1,12 @@
 //! Free functions to create `&[T]` and `&mut [T]`.
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::ops::Range;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{array, ptr, ub_checks};
 
 /// Forms a slice from a pointer and a length.

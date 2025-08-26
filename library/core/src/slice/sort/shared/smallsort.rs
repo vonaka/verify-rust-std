@@ -1,13 +1,13 @@
 //! This module contains a variety of sort implementations that are optimized for small lengths.
 
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
+#[cfg(kani)]
+use crate::kani;
 use crate::mem::{self, ManuallyDrop, MaybeUninit};
 use crate::slice::sort::shared::FreezeMarker;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{hint, intrinsics, ptr, slice};
 
 // It's important to differentiate between SMALL_SORT_THRESHOLD performance for

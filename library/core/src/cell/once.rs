@@ -1,12 +1,11 @@
-use crate::ub_checks::Invariant;
-
-#[cfg(kani)]
-use crate::kani;
-#[allow(unused_imports)]
-use crate::ub_checks::*;
 use safety::{ensures, requires};
 
 use crate::cell::UnsafeCell;
+#[cfg(kani)]
+use crate::kani;
+use crate::ub_checks::Invariant;
+#[allow(unused_imports)]
+use crate::ub_checks::*;
 use crate::{fmt, mem};
 
 /// A cell which can nominally be written to only once.
