@@ -162,7 +162,11 @@ where
         let bitmask: U = unsafe { core::intrinsics::simd::simd_bitmask(resized) };
 
         // LLVM assumes bit order should match endianness
-        if cfg!(target_endian = "big") { bitmask.reverse_bits(M) } else { bitmask }
+        if cfg!(target_endian = "big") {
+            bitmask.reverse_bits(M)
+        } else {
+            bitmask
+        }
     }
 
     #[inline]
@@ -171,7 +175,11 @@ where
         LaneCount<M>: SupportedLaneCount,
     {
         // LLVM assumes bit order should match endianness
-        let bitmask = if cfg!(target_endian = "big") { bitmask.reverse_bits(M) } else { bitmask };
+        let bitmask = if cfg!(target_endian = "big") {
+            bitmask.reverse_bits(M)
+        } else {
+            bitmask
+        };
 
         // SAFETY: `mask` is the correct bitmask type for a u64 bitmask
         let mask: Simd<T, M> = unsafe {

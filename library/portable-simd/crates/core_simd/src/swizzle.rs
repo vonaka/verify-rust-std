@@ -98,7 +98,10 @@ pub trait Swizzle<const N: usize> {
                     while i < N {
                         let index = Self::INDEX[i];
                         assert!(index as u32 as usize == index);
-                        assert!(index < M, "source element index exceeds input vector length");
+                        assert!(
+                            index < M,
+                            "source element index exceeds input vector length"
+                        );
                         output[i] = index as u32;
                         i += 1;
                     }
@@ -135,7 +138,10 @@ pub trait Swizzle<const N: usize> {
                     while i < N {
                         let index = Self::INDEX[i];
                         assert!(index as u32 as usize == index);
-                        assert!(index < 2 * M, "source element index exceeds input vector length");
+                        assert!(
+                            index < 2 * M,
+                            "source element index exceeds input vector length"
+                        );
                         output[i] = index as u32;
                         i += 1;
                     }
@@ -385,7 +391,10 @@ where
             const INDEX: [usize; N] = interleave::<N>(true);
         }
 
-        (Lo::concat_swizzle(self, other), Hi::concat_swizzle(self, other))
+        (
+            Lo::concat_swizzle(self, other),
+            Hi::concat_swizzle(self, other),
+        )
     }
 
     /// Deinterleave two vectors.
@@ -433,7 +442,10 @@ where
             const INDEX: [usize; N] = deinterleave::<N>(true);
         }
 
-        (Even::concat_swizzle(self, other), Odd::concat_swizzle(self, other))
+        (
+            Even::concat_swizzle(self, other),
+            Odd::concat_swizzle(self, other),
+        )
     }
 
     /// Resize a vector.
@@ -619,7 +631,12 @@ where
     pub fn deinterleave(self, other: Self) -> (Self, Self) {
         let (even, odd) = self.to_int().deinterleave(other.to_int());
         // Safety: swizzles are safe for masks
-        unsafe { (Self::from_int_unchecked(even), Self::from_int_unchecked(odd)) }
+        unsafe {
+            (
+                Self::from_int_unchecked(even),
+                Self::from_int_unchecked(odd),
+            )
+        }
     }
 
     /// Resize a mask.
@@ -674,11 +691,7 @@ where
 }
 
 #[unstable(feature = "ub_checks", issue = "none")]
-impl<T, const N: usize> Invariant for Mask<T, N>
-where
-    T: MaskElement,
-    LaneCount<N>: SupportedLaneCount,
-{
+impl<T, const N: usize> Invariant for Mask<T, N> where T: MaskElement, LaneCount<N>: SupportedLaneCount {
     fn is_safe(&self) -> bool {
         true // swizzles are safe for masks
     }

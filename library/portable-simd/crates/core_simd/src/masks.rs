@@ -374,7 +374,11 @@ where
         // Safety: the return value is the unsigned version of T
         let min_index: T = unsafe { core::mem::transmute_copy(&min_index) };
 
-        if min_index.eq(T::TRUE) { None } else { Some(min_index.to_usize()) }
+        if min_index.eq(T::TRUE) {
+            None
+        } else {
+            Some(min_index.to_usize())
+        }
     }
 }
 
@@ -441,7 +445,9 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries((0..N).map(|i| self.test(i))).finish()
+        f.debug_list()
+            .entries((0..N).map(|i| self.test(i)))
+            .finish()
     }
 }
 
