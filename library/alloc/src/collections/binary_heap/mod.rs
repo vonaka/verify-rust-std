@@ -143,6 +143,11 @@
 #![allow(missing_docs)]
 #![stable(feature = "rust1", since = "1.0.0")]
 
+use safety::{ensures,requires};
+#[cfg(kani)]
+#[unstable(feature="kani", issue="none")]
+use core::kani;
+
 use core::alloc::Allocator;
 use core::iter::{FusedIterator, InPlaceIterable, SourceIter, TrustedFused, TrustedLen};
 use core::mem::{self, ManuallyDrop, swap};
@@ -742,6 +747,8 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// The caller must guarantee that `pos < self.len()`.
     ///
     /// Returns the new position of the element.
+    #[requires(pos < self.len())]
+    #[cfg_attr(kani, kani::modifies(self.data.as_mut_ptr()))]
     unsafe fn sift_up(&mut self, start: usize, pos: usize) -> usize {
         // Take out the value at `pos` and create a hole.
         // SAFETY: The caller guarantees that pos < self.len()
@@ -773,6 +780,8 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// # Safety
     ///
     /// The caller must guarantee that `pos < end <= self.len()`.
+    #[requires(pos < end && end <= self.len())]
+    #[cfg_attr(kani, kani::modifies(self.data.as_mut_ptr()))]
     unsafe fn sift_down_range(&mut self, pos: usize, end: usize) -> usize {
         // SAFETY: The caller guarantees that pos < end <= self.len().
         let mut hole = unsafe { Hole::new(&mut self.data, pos) };
@@ -815,6 +824,8 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// # Safety
     ///
     /// The caller must guarantee that `pos < self.len()`.
+    #[requires(pos < self.len())]
+    #[cfg_attr(kani, kani::modifies(self.data.as_mut_ptr()))]
     unsafe fn sift_down(&mut self, pos: usize) -> usize {
         let len = self.len();
         // SAFETY: pos < len is guaranteed by the caller and
@@ -831,6 +842,8 @@ impl<T: Ord, A: Allocator> BinaryHeap<T, A> {
     /// # Safety
     ///
     /// The caller must guarantee that `pos < self.len()`.
+    #[requires(pos < self.len())]
+    #[cfg_attr(kani, kani::modifies(self.data.as_mut_ptr()))]
     unsafe fn sift_down_to_bottom(&mut self, mut pos: usize) {
         let end = self.len();
         let start = pos;
@@ -1440,6 +1453,7 @@ impl<'a, T> Hole<'a, T> {
     ///
     /// Unsafe because pos must be within the data slice.
     #[inline]
+    #[requires(pos < data.len())]
     unsafe fn new(data: &'a mut [T], pos: usize) -> Self {
         debug_assert!(pos < data.len());
         // SAFE: pos should be inside the slice
@@ -1462,6 +1476,8 @@ impl<'a, T> Hole<'a, T> {
     ///
     /// Unsafe because index must be within the data slice and not equal to pos.
     #[inline]
+    #[requires(index != self.pos)]
+    #[requires(index < self.data.len())]
     unsafe fn get(&self, index: usize) -> &T {
         debug_assert!(index != self.pos);
         debug_assert!(index < self.data.len());
@@ -1472,6 +1488,9 @@ impl<'a, T> Hole<'a, T> {
     ///
     /// Unsafe because index must be within the data slice and not equal to pos.
     #[inline]
+    #[requires(index != self.pos)]
+    #[requires(index < self.data.len())]
+    #[cfg_attr(kani, kani::modifies(self.data.as_mut_ptr()))]
     unsafe fn move_to(&mut self, index: usize) {
         debug_assert!(index != self.pos);
         debug_assert!(index < self.data.len());
@@ -1971,5 +1990,43 @@ impl<'a, T: 'a + Ord + Copy, A: Allocator> Extend<&'a T> for BinaryHeap<T, A> {
     #[inline]
     fn extend_reserve(&mut self, additional: usize) {
         self.reserve(additional);
+    }
+}
+
+#[cfg(kani)]
+mod verify {
+    use super::*;
+
+    #[kani::proof_for_contract(BinaryHeap::sift_down)]
+    #[kani::unwind(3)]
+    fn verify_sift_down() {
+        // Create an arbitrary size for the heap
+        let size: usize = kani::any();
+        kani::assume(size > 0); // Need at least one element since pos < self.len()
+        kani::assume(size <= 2); // Reasonable bound for verification
+
+        // Create a BinaryHeap with arbitrary elements
+        let mut heap = BinaryHeap::new();
+        for _ in 0..size {
+            heap.data.push(kani::any::<i32>());
+        }
+
+        // Create arbitrary pos value
+        let pos: usize = kani::any();
+
+        // Ensure precondition: pos < self.len()
+        kani::assume(pos < heap.len());
+
+        // Store initial heap length to verify it doesn't change
+        let initial_len = heap.len();
+
+        // Call the function under test
+        // SAFETY: We've ensured pos < heap.len()
+        let new_pos = unsafe { heap.sift_down(pos) };
+
+        // Verify postconditions
+        assert_eq!(heap.len(), initial_len); // Length should remain unchanged
+        assert!(new_pos >= pos); // Element can only move down (to higher index)
+        assert!(new_pos < heap.len()); // Element stays within valid bounds
     }
 }
